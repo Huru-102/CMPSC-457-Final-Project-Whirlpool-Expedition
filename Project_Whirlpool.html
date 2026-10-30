@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<title>Whirlpool Galaxy Expedition</title>
+
+
+<script id="vertex-shader" type="x-shader/x-vertex">
+#version 300 es
+in vec4 aPosition;
+uniform float uScale;
+uniform float uAngle;
+
+void 
+main()
+{
+
+    gl_Position = vec4(aPosition.x + uScale, aPosition.y + uScale, 0.0, 1.0);
+
+
+}
+
+</script>
+
+<script id="fragment-shader" type="x-shader/x-fragment">
+    #version 300 es
+    precision mediump float;
+    out vec4 fColor;
+    uniform vec4 uColor; 
+
+    void main() 
+    {
+
+        fColor = uColor;
+    }
+</script>
+
+</script>
+
+    <script src="initShaders.js.download"></script>
+    <script src="MVnew.js.download"></script>
+<body>
+
+    <canvas id="canvas" width="500" height="500"></canvas>
+    <script type="module" src="Project_Whirlpool_main.js"></script>
+
+
+</body>
+</html>
+
+
