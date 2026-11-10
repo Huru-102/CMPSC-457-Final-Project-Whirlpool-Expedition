@@ -38,7 +38,7 @@ export function sphereData(subdivisions) {
     const d = vec4(0.816497, -0.471405, 0.333333, 1);
 
     function uvOf(p) {
-        const u = 0.5 + Math.atan2(p[2], p[0]) / (2 * Math.PI);
+        const u = 0.5 - Math.atan2(p[2], p[0]) / (2 * Math.PI);   // minus so images are not mirrored
         const v = 0.5 + Math.asin(Math.max(-1, Math.min(1, p[1]))) / Math.PI;
         return [u, v];
     }
@@ -188,6 +188,31 @@ function uploadTexture(gl, size, data) {
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
+    return tex;
+}
+
+// ---------- Image textures (custom art) ----------
+// Loads an image file (png/jpg) into a texture.
+// Images load asynchronously, so we return `fallback` right away and draw with it until the
+// image arrives. Then we upload the image INTO THE SAME texture object, so every material that
+// already points at it switches over automatically. If the file can't load, the fallback stays.
+export function loadImageTexture(gl, url, fallback) {
+    const tex = fallback || uploadTexture(gl, 1, new Uint8Array([255, 0, 255, 255])); // magenta = "missing"
+    const img = new Image();
+    img.onload = () => {
+        gl.bindTexture(gl.TEXTURE_2D, tex);
+        gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);    // images are stored top-down; GL's v goes bottom-up
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img);
+        gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+        gl.generateMipmap(gl.TEXTURE_2D);                 // WebGL 2 allows any image size, not just powers of 2
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
+        console.log(`Loaded texture ${url} (${img.width}x${img.height})`);
+    };
+    img.onerror = () => console.warn(`Could not load texture "${url}", keeping the placeholder. Check the path, and make sure you're using a local server.`);
+    img.src = url;
     return tex;
 }
 
