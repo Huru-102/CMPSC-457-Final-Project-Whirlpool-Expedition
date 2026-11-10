@@ -1,0 +1,19 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Run Whirlpool Expedition prototype",
+			"type": "shell",
+			"command": "python",
+			"args": [
+				"-m",
+				"http.server",
+				"8000",
+				"--directory",
+				"CMPSC-457-Final-Project-Whirlpool-Expedition"
+			],
+			"isBackground": true,
+			"problemMatcher": []
+		}
+	]
+}

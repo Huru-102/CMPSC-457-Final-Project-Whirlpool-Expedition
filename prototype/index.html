@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Whirlpool Expedition - Crude Prototype</title>
+
+<!-- ================= SHADERS ================= -->
+<!-- Vertex shader: applies model-view + projection, passes eye-space position/normal to fragment shader -->
+<script id="vertex-shader" type="x-shader/x-vertex">
+#version 300 es
+in vec4 aPosition;
+in vec3 aNormal;
+in vec2 aTexCoord;
+
+uniform mat4 uModelView;
+uniform mat4 uProjection;
+uniform mat3 uNormalMatrix;
+uniform float uPointSize;
+
+out vec3 vPosEye;
+out vec3 vNormalEye;
+out vec2 vTexCoord;
+
+void main()
+{
+    vec4 posEye = uModelView * aPosition;
+    vPosEye = posEye.xyz;
+    vNormalEye = uNormalMatrix * aNormal;
+    vTexCoord = aTexCoord;
+    gl_PointSize = uPointSize;
+    gl_Position = uProjection * posEye;
+}
+</script>
+
+<!-- Fragment shader: per-pixel Blinn-Phong with one point light (the sun), optional texture, emissive term -->
+<script id="fragment-shader" type="x-shader/x-fragment">
+#version 300 es
+precision mediump float;
+
+in vec3 vPosEye;
+in vec3 vNormalEye;
+in vec2 vTexCoord;
+
+uniform vec3 uLightPos;      // light position in EYE space
+uniform vec3 uLightColor;
+uniform vec3 uAmbient;
+uniform vec3 uDiffuse;
+uniform vec3 uSpecular;
+uniform float uShininess;
+uniform vec3 uEmissive;
+
+uniform bool uUseTexture;
+uniform sampler2D uTexture;
+uniform vec2 uTexScale;
+
+uniform bool uPointMode;     // true when drawing the gl.POINTS starfield
+
+out vec4 fColor;
+
+void main()
+{
+    if (uPointMode) {
+        vec2 c = gl_PointCoord - 0.5;
+        if (dot(c, c) > 0.25) discard;      // round points
+        fColor = vec4(uEmissive, 1.0);
+        return;
+    }
+
+    vec3 base = uDiffuse;
+    if (uUseTexture) base *= texture(uTexture, vTexCoord * uTexScale).rgb;
+
+    vec3 N = normalize(vNormalEye);
+    vec3 L = normalize(uLightPos - vPosEye);
+    vec3 V = normalize(-vPosEye);
+    vec3 H = normalize(L + V);
+
+    float kd = max(dot(N, L), 0.0);
+    float ks = (kd > 0.0) ? pow(max(dot(N, H), 0.0), uShininess) : 0.0;
+
+    vec3 color = uAmbient * base
+               + kd * base * uLightColor
+               + ks * uSpecular * uLightColor
+               + uEmissive;
+
+    fColor = vec4(color, 1.0);
+}
+</script>
+
+<!-- Textbook helpers (shared with the rest of the repo) -->
+<script src="../initShaders.js.download"></script>
+<script src="../MVnew.js.download"></script>
+
+<style>
+    html, body { margin: 0; height: 100%; overflow: hidden; background: #000; font-family: system-ui, sans-serif; color: #e8e6ff; }
+    #gl-canvas { display: block; width: 100vw; height: 100vh; }
+    .panel { position: absolute; background: rgba(10, 8, 30, 0.75); border: 1px solid #4a3f8a; border-radius: 8px; padding: 10px 14px; font-size: 14px; }
+    #hud { top: 12px; left: 12px; width: 280px; }
+    #hud h1 { font-size: 17px; margin: 0 0 6px 0; }
+    #hud h1 span { font-size: 11px; font-weight: normal; opacity: 0.6; }
+    #hud .row { margin: 4px 0; }
+    #hud .label { opacity: 0.6; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; }
+    #controls { bottom: 12px; left: 12px; }
+    #controls button { background: #2c2470; color: #fff; border: 1px solid #6a5fd0; border-radius: 5px; padding: 5px 10px; margin: 2px; cursor: pointer; }
+    #controls button:hover { background: #3d33a0; }
+    #controls .keys { font-size: 12px; opacity: 0.75; margin-bottom: 6px; }
+    #message { top: 14px; left: 50%; transform: translateX(-50%); font-size: 16px; display: none; }
+    #prompt { bottom: 90px; left: 50%; transform: translateX(-50%); font-size: 15px; display: none; border-color: #c8a040; }
+    #win { top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; padding: 24px 36px; display: none; font-size: 18px; }
+    #win h2 { margin-top: 0; }
+</style>
+</head>
+
+<body>
+    <canvas id="gl-canvas"></canvas>
+
+    <div id="hud" class="panel">
+        <h1>Whirlpool Expedition <span>crude prototype</span></h1>
+        <div class="row"><div class="label">Objective</div><div id="objective"></div></div>
+        <div class="row"><div class="label">Ship repair</div><div id="repair"></div></div>
+        <div class="row"><div class="label">Inventory</div><div id="inventory"></div></div>
+        <div class="row"><div class="label">Scanner</div><div id="scanner"></div></div>
+    </div>
+
+    <div id="controls" class="panel">
+        <div class="keys">W/S: walk &nbsp; A/D: turn &nbsp; E or click: interact &nbsp; P: camera &nbsp; R: reset &nbsp; mouse wheel: zoom</div>
+        <button id="btn-interact">Interact (E)</button>
+        <button id="btn-camera">Camera: Ortho</button>
+        <button id="btn-reset">Reset (R)</button>
+        <label style="margin-left:8px; font-size:12px;">Zoom
+            <input id="zoom-slider" type="range" min="3" max="14" step="0.5" value="6">
+        </label>
+    </div>
+
+    <div id="message" class="panel"></div>
+    <div id="prompt" class="panel"></div>
+
+    <div id="win" class="panel">
+        <h2>You escaped the Whirlpool Galaxy!</h2>
+        <p>The ship is repaired and you're headed home.</p>
+        <button id="btn-again">Play again</button>
+    </div>
+
+    <script type="module" src="main.js"></script>
+</body>
+</html>
