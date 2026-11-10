@@ -1,6 +1,6 @@
 // main.js
 // Setup, input, game loop (requestAnimationFrame), and drawing order.
-
+//import {noraVerticesPusher, noraVerticesDraw} from '../Nora_Edits.js';
 import { createRenderer, MatrixStack, material } from './renderer.js';
 import * as G from './geometry.js';
 import { Player } from './player.js';
@@ -36,6 +36,7 @@ window.onload = function init() {
     if (!gl) { alert("WebGL 2.0 isn't available"); return; }
 
     renderer = createRenderer(gl);
+  
 
     meshes = {
         sphere: G.createMesh(gl, renderer, G.sphereData(3)),
@@ -74,6 +75,17 @@ window.onload = function init() {
     requestAnimationFrame(render);
 };
 
+function syncInventoryToUI(game) {
+    const slots = document.querySelectorAll('.inv-slot');
+    
+    slots.forEach(slot => {slot.querySelector('.item-name').textContent = ''});
+
+    game.inventory.forEach((item, index) => {
+        if (index < slots.length) {
+            slots[index].querySelector('.item-name').textContent = item.name;
+        }
+    });
+}
 function resetGame() {
     game = createGame();
     player = new Player(PLANET_RADIUS);
@@ -161,5 +173,7 @@ function render(now) {
     player.draw(renderer, meshes, stack);
 
     updateUI(game, nearestPartDistance(game, player));
+
+    syncInventoryToUI(game); 
     requestAnimationFrame(render);
 }

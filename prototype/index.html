@@ -4,6 +4,44 @@
 <meta charset="UTF-8">
 <title>Whirlpool Expedition - Crude Prototype</title>
 
+<style>
+    #inventory-bar {
+        position: absolute;
+        bottom: 10px;
+        left: 50%;
+        transform: translateX(-50%);
+        display: flex;
+        gap: 10px;
+        background: rgba(10, 8, 30, 0.75);
+        padding: 10px;
+        border-radius: 8px;
+        border: 2px solid #4a3f8a;
+    }
+
+    .inv-slot {
+        width: 50px;
+        height: 50px;
+        background: rgba(10, 8, 30, 0.75);
+        border: 1px solid #4a3f8a;
+        color: #4a3f8a;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-family: sans-serif;
+        font-weight: bold;
+        cursor: pointer;
+        transition: background 0.2s;
+        font-size: 13px;
+    }
+
+    .inv-slot:hover {
+        background: rgba(0, 255, 255, 0.3);
+    }
+</style>
+
+
+
 <!-- ================= SHADERS ================= -->
 <!-- Vertex shader: applies model-view + projection, passes eye-space position/normal to fragment shader -->
 <script id="vertex-shader" type="x-shader/x-vertex">
@@ -55,10 +93,19 @@ uniform vec2 uTexScale;
 
 uniform bool uPointMode;     // true when drawing the gl.POINTS starfield
 
+uniform bool uNoraUseColor;
+uniform vec4 uNoraColor;
+
 out vec4 fColor;
 
 void main()
 {
+
+    if (uNoraUseColor) {
+        fColor = uNoraColor;
+        return;
+    }
+
     if (uPointMode) {
         vec2 c = gl_PointCoord - 0.5;
         if (dot(c, c) > 0.25) discard;      // round points
@@ -112,6 +159,16 @@ void main()
 
 <body>
     <canvas id="gl-canvas"></canvas>
+
+<div id="inventory-bar">
+    <div class="inv-slot" data-slot="0"><span class="item-name"></span></div>
+    <div class="inv-slot" data-slot="1"><span class="item-name"></span></div>
+    <div class="inv-slot" data-slot="2"><span class="item-name"></span></div>
+    <div class="inv-slot" data-slot="3"><span class="item-name"></span></div>
+    <div class="inv-slot" data-slot="4"><span class="item-name"></span></div>
+    <div class="inv-slot" data-slot="5"><span class="item-name"></span></div>
+</div>
+    
 
     <div id="hud" class="panel">
         <h1>Whirlpool Expedition <span>crude prototype</span></h1>
