@@ -124,10 +124,14 @@ export class MatrixStack {
 // ---- Placing things on a sphere ----
 // Builds a model matrix whose local axes are:
 //   x = cross(up, forward), y = up (away from planet center), z = forward
-// and whose origin sits at distance `radius` from the planet center along `up`.
-export function surfaceFrame(up, forward, radius) {
+// and whose origin sits at distance `radius` from the planet `center` along `up`.
+export function surfaceFrame(up, forward, radius, center = vec3(0, 0, 0)) {
+    return frameAt(add(center, mult(radius, up)), up, forward);
+}
+
+// Same idea, but with an explicit world-space origin (used while flying between planets).
+export function frameAt(p, up, forward) {
     const side = cross(up, forward);
-    const p = mult(radius, up);
     return mat4(
         side[0], up[0], forward[0], p[0],
         side[1], up[1], forward[1], p[1],
