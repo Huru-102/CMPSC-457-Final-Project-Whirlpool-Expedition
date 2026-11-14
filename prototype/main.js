@@ -5,14 +5,15 @@ import { createRenderer, MatrixStack, material } from './renderer.js';
 import * as G from './geometry.js';
 import { Player } from './player.js';
 import { Camera } from './camera.js';
-import { PLANET_RADIUS, createGame, updateGame, cameraTarget, drawWorld, nearestPartDistance } from './gameplay.js';
+import { PLANETS, createGame, updateGame, cameraTarget, drawWorld, scanParts, planetWorld } from './gameplay.js';
 import { initUI, updateUI, setCameraLabel, setZoomSlider } from './ui.js';
 
 // ---- Custom texture images ----
 // Put image files in prototype/textures/ and set the path here (relative to index.html).
 // Leave a value as null to use the procedurally generated texture instead.
 const TEXTURE_FILES = {
-    planet: null,   // e.g. 'textures/planet.jpg'  (one image wrapped around the whole planet)
+    planet: 'textures/Planet_1_Rough.png',   // e.g. 'textures/planet.jpg'  (one image wrapped around the whole planet)
+    planet2: 'textures/Planet_2_Rough.png',  // second planet (Kelpra)
     rock:   null,   // e.g. 'textures/rock.png'
     hull:   null,   // e.g. 'textures/hull.png'    (applied to each face of the ship's boxes)
 };
@@ -44,11 +45,13 @@ window.onload = function init() {
         rock:   G.createMesh(gl, renderer, G.sphereData(1)),     // low-poly = faceted rocks
         cube:   G.createMesh(gl, renderer, G.cubeData()),
         star:   G.createMesh(gl, renderer, G.starData()),
+        volcano: G.createMesh(gl, renderer, G.frustumData(0.47)),   // top radius 0.8 / base 1.7
         stars:  G.createMesh(gl, renderer, G.starfieldData(2500, 80), gl.POINTS),
     };
     // Each texture uses the image from TEXTURE_FILES if one is set, otherwise the generated one.
     textures = {
         planet: textureFor('planet', () => G.makeRockTexture(gl)),
+        planet2: textureFor('planet2', () => G.makeRockTexture(gl)),
         rock:   textureFor('rock',   () => G.makeRockTexture(gl)),
         hull:   textureFor('hull',   () => G.makeHullTexture(gl)),
     };
@@ -88,7 +91,7 @@ function syncInventoryToUI(game) {
 }
 function resetGame() {
     game = createGame();
-    player = new Player(PLANET_RADIUS);
+    player = new Player(PLANETS[0]);
     camera.snapNext = true;
 }
 
@@ -127,11 +130,13 @@ function resize() {
     gl.viewport(0, 0, canvas.width, canvas.height);
 }
 
-// The diffuse color MULTIPLIES the texture. The generated texture is gray so we tint it purple and
-// repeat it 6x3 times; a custom image is shown in its true colors, wrapped once around the planet.
-const PLANET = () => TEXTURE_FILES.planet
-    ? material({ diffuse: [1, 1, 1], texture: textures.planet, texScale: [1, 1], specular: [0.15, 0.15, 0.15], shininess: 10 })
-    : material({ diffuse: [0.75, 0.62, 0.8], texture: textures.planet, texScale: [6, 3], specular: [0.15, 0.15, 0.15], shininess: 10 });
+// The diffuse color MULTIPLIES the texture. The generated texture is gray so we tint it per planet
+// and repeat it; a custom image is shown in its true colors, wrapped once around the planet.
+function planetMaterial(p) {
+    return TEXTURE_FILES[p.texture]
+        ? material({ diffuse: [1, 1, 1], texture: textures[p.texture], texScale: [1, 1], specular: [0.15, 0.15, 0.15], shininess: 10 })
+        : material({ diffuse: p.tint, texture: textures[p.texture], texScale: p.texScale, specular: [0.15, 0.15, 0.15], shininess: 10 });
+}
 const SUN = material({ diffuse: [0, 0, 0], ambient: [0, 0, 0], specular: [0, 0, 0], emissive: [1.0, 0.85, 0.4] });
 
 function render(now) {
@@ -140,7 +145,7 @@ function render(now) {
     time += dt;
 
     // ---------- update ----------
-    if (game.phase === 'explore') player.update(dt, keys, game.obstacles);
+    if (game.phase === 'explore') player.update(dt, keys, planetWorld(game, player.planet));
     updateGame(game, player, dt, input);
     input.interact = false;
     camera.update(dt, cameraTarget(game, player));
@@ -159,20 +164,16 @@ function render(now) {
     renderer.drawPoints(meshes.stars, skyView, perspective(60, aspect, 0.1, 200), 2.0 * (window.devicePixelRatio || 1), [0.9, 0.9, 1.0]);
     gl.depthMask(true);
 
-    // the sun orbits the planet and is the point light
-    const sunAngle = time * 0.15;
-    const sunPos = vec3(22 * Math.cos(sunAngle), 10, 22 * Math.sin(sunAngle));
+    // the sun orbits both planets and is the point light
+    const sunAngle = time * 0.1;
+    const sunPos = vec3(13 + 50 * Math.cos(sunAngle), 22, -7 + 50 * Math.sin(sunAngle));
     renderer.setLight(sunPos);
-    renderer.draw(meshes.sphere, mult(translate(sunPos[0], sunPos[1], sunPos[2]), scale(2.2, 2.2, 2.2)), SUN);
+    renderer.draw(meshes.sphere, mult(translate(sunPos[0], sunPos[1], sunPos[2]), scale(4, 4, 4)), SUN);
 
-    // planet
-    // (rotated so the texture's pole seam isn't right under the spawn point)
-    renderer.draw(meshes.planet, mult(scale(PLANET_RADIUS, PLANET_RADIUS, PLANET_RADIUS), rotateX(90)), PLANET());
-
-    drawWorld(renderer, meshes, textures, stack, game, time);
+    drawWorld(renderer, meshes, textures, stack, game, time, PLANETS.map(planetMaterial));
     player.draw(renderer, meshes, stack);
 
-    updateUI(game, nearestPartDistance(game, player));
+    updateUI(game, scanParts(game, player), player.planet.name);
 
     syncInventoryToUI(game); 
     requestAnimationFrame(render);
