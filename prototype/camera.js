@@ -12,14 +12,16 @@ export class Camera {
         this.snapNext = true;      // jump straight to the target on the first frame / reset
     }
 
-    // target = { pos, up, forward, zoomScale }
+    // target = { pos, up, forward, zoomScale, upOffset, backOffset }
+    //   upOffset / backOffset: how far above / behind the target the camera sits.
+    //   Normal walking uses a high view (10 up, 7 back); parkour uses a lower one so heights are readable.
     update(dt, target) {
         const z = this.zoom * (target.zoomScale || 1);
         const d = z / 6;
-        // sit above the player (along their "up") and a bit behind them
-        const desiredEye = add(target.pos, add(mult(10 * d, target.up), mult(-7 * d, target.forward)));
+        const upOff = target.upOffset ?? 10, backOff = target.backOffset ?? 7;
+        const desiredEye = add(target.pos, add(mult(upOff * d, target.up), mult(-backOff * d, target.forward)));
 
-        const k = this.snapNext ? 1 : 1 - Math.exp(-6 * dt);   // frame-rate independent smoothing
+        const k = this.snapNext ? 1 : 1 - Math.exp(-5 * dt);   // frame-rate independent smoothing
         this.snapNext = false;
         this.eye = mix(this.eye, desiredEye, k);
         this.at = mix(this.at, target.pos, k);
@@ -34,7 +36,7 @@ export class Camera {
     projectionMatrix(aspect) {
         const z = this.currentZoom;
         return this.useOrtho
-            ? ortho(-z * aspect, z * aspect, -z, z, 0.1, 200)
-            : perspective(50, aspect, 0.1, 200);
+            ? ortho(-z * aspect, z * aspect, -z, z, 0.1, 300)
+            : perspective(50, aspect, 0.1, 300);
     }
 }
