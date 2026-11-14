@@ -104,6 +104,26 @@ export function cubeData() {
     return { positions, normals, texCoords };
 }
 
+// ---------- Frustum (cone with the tip cut off) for the volcano ----------
+// Bottom radius 1 at y=0, top radius `topR` at y=1, open top (the crater).
+export function frustumData(topR = 0.4, segments = 28) {
+    const positions = [], normals = [], texCoords = [];
+    const k = topR - 1.0;                         // change in radius per unit height
+    for (let i = 0; i < segments; i++) {
+        const t0 = (i / segments) * 2 * Math.PI, t1 = ((i + 1) / segments) * 2 * Math.PI;
+        const corner = (t, y) => {
+            const r = 1.0 + k * y;
+            const n = normalize(vec3(Math.cos(t), -k, Math.sin(t)));   // side normal tilts upward
+            positions.push([r * Math.cos(t), y, r * Math.sin(t), 1.0]);
+            normals.push([n[0], n[1], n[2]]);
+            texCoords.push([t / (2 * Math.PI) * 3, y]);
+        };
+        corner(t0, 0); corner(t1, 0); corner(t1, 1);
+        corner(t0, 0); corner(t1, 1); corner(t0, 1);
+    }
+    return { positions, normals, texCoords };
+}
+
 // ---------- 3D five-point star (collectible ship parts) ----------
 export function starData(points = 5, outer = 0.5, inner = 0.22, rimZ = 0.08, tipZ = 0.2) {
     const rim = [];
