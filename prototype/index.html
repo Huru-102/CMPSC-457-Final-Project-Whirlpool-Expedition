@@ -146,12 +146,12 @@ void main()
     #hud h1 span { font-size: 11px; font-weight: normal; opacity: 0.6; }
     #hud .row { margin: 4px 0; }
     #hud .label { opacity: 0.6; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; }
-    #controls { bottom: 12px; left: 12px; }
+    #controls { bottom: 12px; left: 12px; max-width: 250px; }   /* narrow so it does not overlap the inventory bar */
     #controls button { background: #2c2470; color: #fff; border: 1px solid #6a5fd0; border-radius: 5px; padding: 5px 10px; margin: 2px; cursor: pointer; }
     #controls button:hover { background: #3d33a0; }
     #controls .keys { font-size: 12px; opacity: 0.75; margin-bottom: 6px; }
     #message { top: 14px; left: 50%; transform: translateX(-50%); font-size: 16px; display: none; }
-    #prompt { bottom: 90px; left: 50%; transform: translateX(-50%); font-size: 15px; display: none; border-color: #c8a040; }
+    #prompt { bottom: 175px; left: 50%; transform: translateX(-50%); font-size: 15px; display: none; border-color: #c8a040; }
     #win { top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; padding: 24px 36px; display: none; font-size: 18px; }
     #win h2 { margin-top: 0; }
 </style>
