@@ -40,7 +40,20 @@
     }
 </style>
 
+<!-- audio-->
+<audio id="collectItemAudio"> 
+    <source src = "collectItem.mp3" type= "audio/mpeg">
+</audio>
 
+<style>
+    #fadingScreen {
+        position: fixed;
+        background-color: black;
+        opacity: 0;
+        inset: 0;
+        transition: opacity 0.4s ease;
+    }
+</style>
 
 <!-- ================= SHADERS ================= -->
 <!-- Vertex shader: applies model-view + projection, passes eye-space position/normal to fragment shader -->
@@ -196,6 +209,8 @@ void main()
         <p>The ship is repaired and you're headed home.</p>
         <button id="btn-again">Play again</button>
     </div>
+
+    <div id = "fadingScreen"></div>
 
     <script type="module" src="main.js"></script>
 </body>

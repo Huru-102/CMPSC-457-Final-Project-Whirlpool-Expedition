@@ -12,7 +12,6 @@ export const PLANETS = [
 ];
 const A = PLANETS[0], B = PLANETS[1];
 const dirOf = (x, y, z) => normalize(vec3(x, y, z));
-
 // kept for older code that still expects a single radius
 export const PLANET_RADIUS = A.radius;
 
@@ -27,8 +26,29 @@ const VOLCANO = {
     baseR: 1.7,           // radius at the bottom
     topR: 0.8,            // radius at the crater
 };
+
+//cave 1 on planet A
+const CAVE1 = {
+    dir: dirOf(0, -0.1, 0),
+    height : 2.5,
+    width: 1.7,
+    depth: 0.8,
+    baseR: 3.0,
+}
+
+const CAVE1Entrance= {
+    dir: dirOf(0, -0.1, 0.024),
+    height: 2.0,
+    width: 1.0,
+    depth: 0.7,
+    baseR: 1.9,
+}
+
+
 const V_T1 = tangentFor(VOLCANO.dir);
 const V_T2 = cross(VOLCANO.dir, V_T1);
+const C_T1 = tangentFor(CAVE1.dir);
+const CE_T1 = tangentFor(CAVE1Entrance.dir);
 
 // Return vent on planet B (step on it to fly back), and where you land on each planet
 const TOWARD_A = normalize(subtract(A.center, B.center));
@@ -142,6 +162,7 @@ export function createGame() {
         shipVel: 0,
         nearShip: false,
         nearVolcano: false,
+        nearCave: false,
         message: 'Your ship crashed! Find 3 missing parts (glowing stars) and bring them back.',
         messageTime: 5,
     };
@@ -180,6 +201,15 @@ function updatePuffs(game, dt) {
     }
     game.puffs = game.puffs.filter(p => p.life > 0);
 }
+
+// ------- cave phase player movement ---
+function CavePhase(game, player, toPlanet, toDir, inCave = true, duration=0.5){
+    const p0= player.position;
+    const p2= worldPos(toPlanet, toDir, 0);
+    const mid = mult(0.5, add(p0, p2));
+    const p1 = add(mid, vec3(0, 0.4, 0));
+    game.CavePhase = { t: 0, duration, p0, p1, p2, toPlanet, toDir, inCave};
+};
 
 // ---------------- flight between planets ----------------
 // A quadratic Bezier curve from the launch point to the landing point, lifted "up" in the middle.
@@ -225,10 +255,15 @@ function updateFlight(game, player, dt) {
     }
 }
 
+//audio
+let collectAudio = document.getElementById("collectItemAudio");
+let fade = document.getElementById("fadingScreen");
+
 // ---------------- main update ----------------
 export function updateGame(game, player, dt, input) {
     game.messageTime = Math.max(0, game.messageTime - dt);
     updatePuffs(game, dt);
+
 
     // idle steam from the volcano crater and the return vent
     game.puffTimer -= dt;
@@ -242,19 +277,37 @@ export function updateGame(game, player, dt, input) {
         const planet = player.planet;
         const pPos = player.position;
 
+
+
+        if(game.nearCave && game.phase !== 'cave') { // switching to cave phase 
+            game.phase = 'cave'; 
+            fadingScreen.style.opacity = 1;
+            CavePhase(game, player, A, CAVE1Entrance.dir, true, 0.5);
+            
+            setTimeout(function() {
+                player.placeOn(A, CAVE1Entrance.dir, CE_T1);
+                game.CavePhase = null;
+                if (fadingScreen)
+                    fadingScreen.style.opacity = 0; 
+            }, 1000);
+        }
+
+
         // pick up parts on this planet by walking into them
         for (const p of game.parts) {
             if (p.collected || p.planet !== planet.id) continue;
             if (length(subtract(pPos, worldPos(planet, p.dir, 0.6))) < 1.1) {
+                collectAudio.play();
                 p.collected = true;
                 game.inventory.push(p);
                 say(game, `Picked up: ${p.name}`);
+                
             }
         }
 
         game.nearShip = planet === A && length(subtract(pPos, worldPos(A, SHIP_DIR, 0))) < 2.4;
         game.nearVolcano = planet === A && arc(player.up, VOLCANO.dir, A.radius) < 4.5;
-
+        game.nearCave = planet === A && length(subtract(pPos, worldPos(A, CAVE1.dir, 0))) < 2.5;
         // parkour progress messages
         const on = player.standingOn;
         if (on && on.kind === 'step' && on.index > game.bestStep) {
@@ -304,7 +357,11 @@ export function updateGame(game, player, dt, input) {
         }
     } else if (game.phase === 'flight') {
         updateFlight(game, player, dt);
-    } else {
+    } 
+    else if (game.phase === "cave") { // if player is inside the cave
+        ///
+    }
+    else {
         // escape sequence: rumble for a second, then accelerate away from the planet
         game.escapeTime += dt;
         if (game.escapeTime > 1.0) {
@@ -327,6 +384,17 @@ export function cameraTarget(game, player) {
         const pos = worldPos(A, SHIP_DIR, game.shipLift);
         return { pos, up: SHIP_DIR, forward: SHIP_FWD, zoomScale: 1 + game.escapeTime * 0.4 };
     }
+
+    if (game.phase === "cave") {
+        return {
+            pos: vec3(0, 1.5, 0),
+            up: vec3(0,1, 0),
+            forward: vec3(0, 0, -1),
+            zoomScale: 1,
+            upOffset: 1.5,
+            backOffset: 5,
+        };
+    }
     // lower, more side-on camera near the volcano / in the air so jump heights are readable
     const parkour = game.nearVolcano || player.h > 0.3 || game.phase === 'geyser';
     return {
@@ -345,6 +413,12 @@ const STEAM = material({ diffuse: [0.8, 0.8, 0.85], emissive: [0.35, 0.35, 0.4],
 
 // planetMaterials[i] = material for PLANETS[i] (built in main.js so it can use custom texture images)
 export function drawWorld(renderer, meshes, textures, stack, game, time, planetMaterials) {
+    if (game.phase === "cave") {
+        drawCaveInterior(renderer, meshes, textures, stack, game, time);
+        return;
+    }
+
+
     // planets: translate to the center, scale to the radius, rotate the texture out of the way
     for (const p of PLANETS) {
         const model = mult(translate(p.center[0], p.center[1], p.center[2]),
@@ -378,6 +452,8 @@ export function drawWorld(renderer, meshes, textures, stack, game, time, planetM
 
     drawVolcano(renderer, meshes, textures, stack, game, time);
     drawVent(renderer, meshes, stack, time);
+    drawCave1(renderer, meshes, textures, stack, game, time); 
+    drawCaveEnterance(renderer, meshes, textures, stack, game, time);
 
     // steam puffs: grow and shrink over their life
     for (const p of game.puffs) {
@@ -387,6 +463,49 @@ export function drawWorld(renderer, meshes, textures, stack, game, time, planetM
     }
 
     drawShip(renderer, meshes, textures, stack, game, time);
+}
+
+function drawCave1 (renderer, meshes, textures, stack, game, time) {
+    const R = A.radius;
+    stack.load(surfaceFrame(CAVE1.dir, C_T1, R-0.3, A.center));
+    stack.push();
+    stack.mul(scale(CAVE1.baseR + 0.15, CAVE1.height +0.33, CAVE1.baseR + 0.15));
+        renderer.draw(meshes.rock, stack.top, material({
+            diffuse: [0.5, 0.33, 0.3], texture: textures.rock, texScale: [1, 1], specular: [0.1, 0.1, 0.1],
+        }));
+    stack.pop();   
+
+}
+
+function drawCaveEnterance(renderer, meshes, textures, stack, game, time) {
+    const R = A.radius; 
+    stack.load(surfaceFrame(CAVE1Entrance.dir, CE_T1, R-0.3, A.center));
+    stack.push();
+        stack.mul(scale(CAVE1Entrance.baseR + 0.15, CAVE1Entrance.height +0.33, CAVE1Entrance.baseR + 0.15));
+        renderer.draw(meshes.rock, stack.top, material({
+            diffuse: [0.2, 0.0, 0.0], texture: textures.rock, texScale: [1, 1], specular: [0.1, 0.1, 0.1],
+        }));
+    stack.pop();   
+}
+
+function drawCaveInterior(renderer, meshes, textures, stack, game, time) {
+    const caveMat = material({
+        diffuse: [0.28, 0.24, 0.27],
+        texture: textures.rock,
+        texScale: [4, 4],
+        specular: [0.05, 0.05, 0.05],
+        emissive: [0.12, 0.1, 0.12],
+    });
+
+    function inside(cx, cy, cz, w, h, d) {
+        stack.load(translate(cx, cy, cz));
+        stack.mul(scale(w, h, d));
+        renderer.draw(meshes.cube, stack.top, caveMat);
+    }
+
+    inside(0, -2, -1, 30, 4, 14);
+
+    inside(0, 3.5, -6.6, 30, 7, 1.2);
 }
 
 function drawVolcano(renderer, meshes, textures, stack, game, time) {
