@@ -14,6 +14,8 @@ import { initUI, updateUI, setCameraLabel, setZoomSlider } from './ui.js';
 const TEXTURE_FILES = {
     planet: 'textures/Planet_1_Rough.png',   // e.g. 'textures/planet.jpg'  (one image wrapped around the whole planet)
     planet2: 'textures/Planet_2_Rough.png',  // second planet (Kelpra)
+    planet2Pedestal: 'textures/PlanetB_Pedestal.png',
+    planet2Rocks: 'textures/planetB_rocks.png',
     rock:   null,   // e.g. 'textures/rock.png'
     hull:   null,   // e.g. 'textures/hull.png'    (applied to each face of the ship's boxes)
 };
@@ -47,11 +49,14 @@ window.onload = function init() {
         star:   G.createMesh(gl, renderer, G.starData()),
         volcano: G.createMesh(gl, renderer, G.frustumData(0.47)),   // top radius 0.8 / base 1.7
         stars:  G.createMesh(gl, renderer, G.starfieldData(2500, 80), gl.POINTS),
+        ventBase: G.createMesh(gl, renderer, G.ventBaseData()),
     };
     // Each texture uses the image from TEXTURE_FILES if one is set, otherwise the generated one.
     textures = {
         planet: textureFor('planet', () => G.makeRockTexture(gl)),
         planet2: textureFor('planet2', () => G.makeRockTexture(gl)),
+        planet2Pedestal: textureFor('planet2Pedestal', () => G.makeRockTexture(gl)),
+        planet2Rocks: textureFor ('planet2Rocks', () => G.makeRockTexture(gl)),
         rock:   textureFor('rock',   () => G.makeRockTexture(gl)),
         hull:   textureFor('hull',   () => G.makeHullTexture(gl)),
     };

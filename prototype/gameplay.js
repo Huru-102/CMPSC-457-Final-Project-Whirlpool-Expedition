@@ -122,9 +122,13 @@ export function createGame() {
     const rocks = [...makeRocks(A, 14, keepA, 457), ...makeRocks(B, 9, keepB, 458)];
 
     // obstacles: upright shapes with a bottom radius, top radius and height
-    const obstacles = [[], []];
+    const obstacles = [[], []]; //These obstacles are actually about creating the collision for the things you've draw. -H
+                                //second note. I made these have top collision now. They didn't before, and I didn't know why. 
+                                //THIRD AND MOST IMPORTANTLY. Each index represents a planet. 0 is A. 1 is B
     obstacles[0].push({ dir: SHIP_DIR, radius: 1.3, topRadius: 1.3, height: 1.4 });
     obstacles[0].push({ dir: VOLCANO.dir, radius: VOLCANO.baseR, topRadius: VOLCANO.topR, height: VOLCANO.height });
+    obstacles[1].push({ dir: VENT_DIR, radius: 1, topRadius: 1, height: 0.5 });
+
     for (const r of rocks) obstacles[r.planet].push({ dir: r.dir, radius: r.size, topRadius: r.size * 0.6, height: r.size * 0.9 });
 
     return {
@@ -149,9 +153,18 @@ export function createGame() {
 
 // obstacles + platforms for the planet the player is on
 export function planetWorld(game, planet) {
+    const obstaclePlatforms = game.obstacles[planet.id].map(obs => ({
+        planet: planet.id,
+        dir: obs.dir,
+        top: obs.height,
+        size: obs.topRadius, // Use the top radius so sloped objects work correctly
+        kind: 'obstacle_top'
+    }));
+
     return {
         obstacles: game.obstacles[planet.id],
-        platforms: game.platforms.filter(p => p.planet === planet.id),
+        // Combine the manual platforms with the auto-generated obstacle platforms
+        platforms: [...game.platforms.filter(p => p.planet === planet.id), ...obstaclePlatforms],
     };
 }
 
@@ -271,8 +284,11 @@ export function updateGame(game, player, dt, input) {
 
         // stepped on the return vent on planet B -> fly back to the ship
         if (planet === B && player.onGround && arc(player.up, VENT_DIR, B.radius) < 0.6) {
-            say(game, 'WHOOSH!', 2);
-            startFlight(game, player, A, A_LANDING, 2.5);
+            game.phase = 'vent'; 
+            game.geyserTime = 0;
+           
+            
+            
         }
 
         if (input.interact) {
@@ -302,6 +318,16 @@ export function updateGame(game, player, dt, input) {
             say(game, 'LAUNCH!', 2);
             startFlight(game, player, B, B_LANDING, 3.0);
         }
+    } else if (game.phase == 'vent') {
+
+        game.geyserTime += dt;
+        say(game, 'WHOOSH!', 2); 
+        if (game.geyserTime > 1.3) {
+
+            startFlight(game, player, A, A_LANDING, 2.5);
+
+        }
+
     } else if (game.phase === 'flight') {
         updateFlight(game, player, dt);
     } else {
@@ -350,16 +376,24 @@ export function drawWorld(renderer, meshes, textures, stack, game, time, planetM
         const model = mult(translate(p.center[0], p.center[1], p.center[2]),
                       mult(scale(p.radius, p.radius, p.radius), rotateX(p.texRotX)));
         renderer.draw(meshes.planet, model, planetMaterials[p.id]);
+
+
     }
 
     // rocks: translate + rotate + (non-uniform) scale
-    const rockMat = ROCK(textures.rock);
     for (const r of game.rocks) {
         const pl = PLANETS[r.planet];
         stack.load(surfaceFrame(r.dir, r.fwd, pl.radius, pl.center));
         stack.mul(rotateY(r.spin));
         stack.mul(scale(r.size, r.size * 0.7, r.size * 1.2));
-        renderer.draw(meshes.rock, stack.top, rockMat);
+        let rockMat;  
+        if (r.planet === 0) {
+            rockMat = ROCK(textures.rock);
+        } else if (r.planet === 1) {
+            rockMat = ROCK(textures.planet2Rocks); // Make sure PlanetB_rocks is in your textures object!
+        }
+        renderer.draw(meshes.rock, stack.top, rockMat); 
+
     }
 
     // collectible parts: spinning, bobbing stars
@@ -377,7 +411,7 @@ export function drawWorld(renderer, meshes, textures, stack, game, time, planetM
     }
 
     drawVolcano(renderer, meshes, textures, stack, game, time);
-    drawVent(renderer, meshes, stack, time);
+    drawVent(renderer, meshes, textures, stack, time);
 
     // steam puffs: grow and shrink over their life
     for (const p of game.puffs) {
@@ -428,20 +462,33 @@ function drawVolcano(renderer, meshes, textures, stack, game, time) {
     }
 }
 
-function drawVent(renderer, meshes, stack, time) {
+function drawVent(renderer, meshes, textures, stack, time) {
     // a low ring of rocks on planet B with a glowing center
-    stack.load(surfaceFrame(VENT_DIR, tangentFor(VENT_DIR), B.radius, B.center));
+    stack.load(surfaceFrame(VENT_DIR, tangentFor(VENT_DIR), B.radius, B.center)); //Change these back to B's stuff after hunter
     for (let i = 0; i < 8; i++) {
         stack.push();
             stack.mul(rotateY(i * 45));
-            stack.mul(translate(0.55, 0.05, 0));
+            stack.mul(translate(0.55, 0.60, 0));
             stack.mul(scale(0.22, 0.18, 0.22));
             renderer.draw(meshes.rock, stack.top, material({ diffuse: [0.35, 0.5, 0.5] }));
         stack.pop();
     }
-    const g = 0.4 + 0.2 * Math.sin(time * 5);
+    
+    const g = 0.4 + 0.2 * Math.sin(time * 5); //This is a lighting control variable btw nora. I had no clue for a bit -H
     stack.mul(scale(0.45, 0.04, 0.45));
+    
     renderer.draw(meshes.sphere, stack.top, material({ diffuse: [0.6, 1, 1], emissive: [0.3 * g, g, g] }));
+    
+    stack.load(surfaceFrame(VENT_DIR, tangentFor(VENT_DIR), B.radius, B.center));
+    stack.push();
+        stack.mul(translate(0, 0.20, 0));
+        stack.mul(scale(2, 0.50, 2.05));
+        renderer.draw(meshes.ventBase, stack.top, material({ diffuse: [1, 1, 1], texture: textures.planet2Pedestal }));
+    stack.pop();
+    
+    //renderer.draw(meshes.cube, stack.top, material({ diffuse: [0.3, 1, 1], emissive: [0.3 * g, g, g] }));
+
+
 }
 
 function drawShip(renderer, meshes, textures, stack, game, time) {

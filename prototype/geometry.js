@@ -104,6 +104,43 @@ export function cubeData() {
     return { positions, normals, texCoords };
 }
 
+//Repurposing cube for the sake of a small vent floor
+export function ventBaseData() {
+    const v = [
+        [-.5,  -.5,  .5],  // 0: front-bottom-left  (wide base)
+        [ .5,  -.5,  .5],  // 1: front-bottom-right (wide base)
+        [ .25,  .5,  .25], // 2: front-top-right    (narrow top)
+        [-.25,  .5,  .25], // 3: front-top-left     (narrow top)
+
+        // BACK FACE (z is negative)
+        [-.5,  -.5, -.5],  // 4: back-bottom-left   (wide base)
+        [ .5,  -.5, -.5],  // 5: back-bottom-right  (wide base)
+        [ .25,  .5, -.25], // 6: back-top-right     (narrow top)
+        [-.25,  .5, -.25], // 7: back-top-left      (narrow top)
+    ];
+    const faces = [
+        { idx: [0, 1, 2, 3], n: [ 0,  0,  1] },
+        { idx: [1, 5, 6, 2], n: [ 1,  0,  0] },
+        { idx: [5, 4, 7, 6], n: [ 0,  0, -1] },
+        { idx: [4, 0, 3, 7], n: [-1,  0,  0] },
+        { idx: [3, 2, 6, 7], n: [ 0,  1,  0] },
+        { idx: [4, 5, 1, 0], n: [ 0, -1,  0] },
+    ];
+    const quadUV = [[0, 0], [1, 0], [1, 1], [0, 1]];
+    const positions = [], normals = [], texCoords = [];
+    for (const f of faces) {
+        for (const k of [0, 1, 2, 0, 2, 3]) {        // two triangles per face
+            const p = v[f.idx[k]];
+            positions.push([p[0], p[1], p[2], 1.0]);
+            normals.push(f.n);
+            texCoords.push(quadUV[k]);
+        }
+    }
+    return { positions, normals, texCoords };
+}
+
+
+
 // ---------- Frustum (cone with the tip cut off) for the volcano ----------
 // Bottom radius 1 at y=0, top radius `topR` at y=1, open top (the crater).
 export function frustumData(topR = 0.4, segments = 28) {
@@ -210,6 +247,7 @@ function uploadTexture(gl, size, data) {
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
     return tex;
 }
+
 
 // ---------- Image textures (custom art) ----------
 // Loads an image file (png/jpg) into a texture.
