@@ -42,7 +42,11 @@
 
 <!-- audio-->
 <audio id="collectItemAudio"> 
-    <source src = "collectItem.mp3" type= "audio/mpeg">
+    <source src = "Audio/collectItem.mp3" type= "audio/mpeg">
+</audio>
+
+<audio id="audiopapkin-ambient-soundscapes-003-space-atmosphere-303242">
+    <source src = "Audio/audiopapkin-ambient-soundscapes-003-space-atmosphere-303242.mp3" type = "audio/mpeg">
 </audio>
 
 <style>
@@ -199,6 +203,10 @@ void main()
         <label style="margin-left:8px; font-size:12px;">Zoom
             <input id="zoom-slider" type="range" min="3" max="14" step="0.5" value="6">
         </label>
+        <!--I made this as a way to give a volume slider, but some change at some point made the corner menu not work? I'm not entirely sure why since I didn't originally make or break this?-->
+        <!--<label style="margin-left:8px; font-size:12px;"> Music Volume
+            <input id="music-slider" type="range" min="1" max="5" step="0.5" value="0">
+        </label>-->
     </div>
 
     <div id="message" class="panel"></div>

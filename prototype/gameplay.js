@@ -270,7 +270,11 @@ function updateFlight(game, player, dt) {
 
 //audio
 let collectAudio = document.getElementById("collectItemAudio");
+let standardMusic = document.getElementById("audiopapkin-ambient-soundscapes-003-space-atmosphere-303242")
 let fade = document.getElementById("fadingScreen");
+
+standardMusic.volume = 0.1
+collectAudio.volume = 0.8
 
 // ---------------- main update ----------------
 export function updateGame(game, player, dt, input) {
@@ -289,6 +293,10 @@ export function updateGame(game, player, dt, input) {
     if (game.phase === 'explore') {
         const planet = player.planet;
         const pPos = player.position;
+        if (standardMusic.paused) {
+            standardMusic.play();
+        }
+
 
 
 
