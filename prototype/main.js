@@ -14,6 +14,9 @@ import { initUI, updateUI, setCameraLabel, setZoomSlider } from './ui.js';
 const TEXTURE_FILES = {
     planet: 'textures/Planet_1_Rough.png',   // e.g. 'textures/planet.jpg'  (one image wrapped around the whole planet)
     planet2: 'textures/Planet_2_Rough.png',  // second planet (Kelpra)
+    planet3: 'textures/PlanetC_Texture.png',
+    planet2Pedestal: 'textures/PlanetB_Pedestal.png',
+    planet2Rocks: 'textures/planetB_rocks.png',
     rock:   null,   // e.g. 'textures/rock.png'
     hull:   null,   // e.g. 'textures/hull.png'    (applied to each face of the ship's boxes)
     pipe1: 'textures/pipe1.png',
@@ -22,6 +25,10 @@ const TEXTURE_FILES = {
     pipe4: 'textures/pipe4.png',
 
     
+    TempleWall: 'textures/Temple_Wall_repeat.png',
+    CloudPlatforms: 'textures/Cloud_texture.png',
+    CastleWall: 'textures/FinalCastle_texture.png',
+    cloud: 'textures/Cloud_texture.png',
 };
 
 function textureFor(name, makeGenerated) {
@@ -54,11 +61,17 @@ window.onload = function init() {
         star:   G.createMesh(gl, renderer, G.starData()),
         volcano: G.createMesh(gl, renderer, G.frustumData(0.47)),   // top radius 0.8 / base 1.7
         stars:  G.createMesh(gl, renderer, G.starfieldData(2500, 80), gl.POINTS),
+        ventBase: G.createMesh(gl, renderer, G.ventBaseData()),
+        pyramid: G.createMesh(gl, renderer, G.pyramidData()),
+        buildingPyramid: G.createMesh(gl, renderer, G.buildingPyramidData()),
     };
     // Each texture uses the image from TEXTURE_FILES if one is set, otherwise the generated one.
     textures = {
         planet: textureFor('planet', () => G.makeRockTexture(gl)),
         planet2: textureFor('planet2', () => G.makeRockTexture(gl)),
+        planet3: textureFor('planet3', () => G.makeRockTexture(gl)),
+        planet2Pedestal: textureFor('planet2Pedestal', () => G.makeRockTexture(gl)),
+        planet2Rocks: textureFor ('planet2Rocks', () => G.makeRockTexture(gl)),
         rock:   textureFor('rock',   () => G.makeRockTexture(gl)),
         hull:   textureFor('hull',   () => G.makeHullTexture(gl)),
         pipe1: textureFor('pipe1', () => G.makeRockTexture(gl)),
@@ -67,6 +80,10 @@ window.onload = function init() {
         pipe4: textureFor('pipe4', () => G.makeHullTexture(gl)),
 
         
+        TempleWall: textureFor('TempleWall',   () => G.makeRockTexture(gl)),
+        CastleWall: textureFor('CastleWall',   () => G.makeRockTexture(gl)),
+        cloud: textureFor('cloud',   () => G.makeRockTexture(gl)),
+
     };
 
     camera = new Camera();
@@ -201,6 +218,11 @@ function render(now) {
     const sunPos = vec3(13 + 50 * Math.cos(sunAngle), 22, -7 + 50 * Math.sin(sunAngle));
     renderer.setLight(sunPos);
     renderer.draw(meshes.sphere, mult(translate(sunPos[0], sunPos[1], sunPos[2]), scale(4, 4, 4)), SUN);
+
+    if (game.doorLightPos) {
+        renderer.setLight2(game.doorLightPos, [1.0, 1.0, 1.0]); 
+    }
+
 
     drawWorld(renderer, meshes, textures, stack, game, time, PLANETS.map(planetMaterial));
     player.draw(renderer, meshes, stack);

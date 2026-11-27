@@ -42,7 +42,11 @@
 
 <!-- audio-->
 <audio id="collectItemAudio"> 
-    <source src = "collectItem.mp3" type= "audio/mpeg">
+    <source src = "Audio/collectItem.mp3" type= "audio/mpeg">
+</audio>
+
+<audio id="audiopapkin-ambient-soundscapes-003-space-atmosphere-303242">
+    <source src = "Audio/audiopapkin-ambient-soundscapes-003-space-atmosphere-303242.mp3" type = "audio/mpeg">
 </audio>
 
 <audio id = "liftOffAudio">
@@ -98,6 +102,8 @@ in vec2 vTexCoord;
 
 uniform vec3 uLightPos;      // light position in EYE space
 uniform vec3 uLightColor;
+uniform vec3 uLightPos2;  
+uniform vec3 uLightColor2;
 uniform vec3 uAmbient;
 uniform vec3 uDiffuse;
 uniform vec3 uSpecular;
@@ -134,18 +140,34 @@ void main()
     if (uUseTexture) base *= texture(uTexture, vTexCoord * uTexScale).rgb;
 
     vec3 N = normalize(vNormalEye);
-    vec3 L = normalize(uLightPos - vPosEye);
     vec3 V = normalize(-vPosEye);
-    vec3 H = normalize(L + V);
 
-    float kd = max(dot(N, L), 0.0);
-    float ks = (kd > 0.0) ? pow(max(dot(N, H), 0.0), uShininess) : 0.0;
 
-    vec3 color = uAmbient * base
-               + kd * base * uLightColor
-               + ks * uSpecular * uLightColor
+    vec3 L1 = normalize(uLightPos - vPosEye);
+    vec3 H1 = normalize(L1 + V);
+    float kd1 = max(dot(N, L1), 0.0);
+    float ks1 = (kd1 > 0.0) ? pow(max(dot(N, H1), 0.0), uShininess) : 0.0;
+
+    vec3 L2 = normalize(uLightPos2 - vPosEye);
+    vec3 H2 = normalize(L2 + V);
+    float kd2 = max(dot(N, L2), 0.0);
+    float ks2 = (kd2 > 0.0) ? pow(max(dot(N, H2), 0.0), uShininess) : 0.0;
+
+    float distance = length(uLightPos2 - vPosEye);
+    float attenuation = 1.0 / (1.0 + 0.05 * distance + 0.01 * distance * distance);
+
+    vec3 ambient = uAmbient * base;
+    
+    vec3 diffuse1 = kd1 * base * uLightColor;
+    vec3 specular1 = ks1 * uSpecular * uLightColor;
+    
+    vec3 diffuse2 = kd2 * base * uLightColor2 * attenuation;
+    vec3 specular2 = ks2 * uSpecular * uLightColor2 * attenuation;
+
+    vec3 color = ambient 
+               + diffuse1 + specular1 
+               + diffuse2 + specular2 
                + uEmissive;
-
     fColor = vec4(color, 1.0);
 }
 </script>
@@ -203,6 +225,10 @@ void main()
         <label style="margin-left:8px; font-size:12px;">Zoom
             <input id="zoom-slider" type="range" min="3" max="14" step="0.5" value="6">
         </label>
+        <!--I made this as a way to give a volume slider, but some change at some point made the corner menu not work? I'm not entirely sure why since I didn't originally make or break this?-->
+        <!--<label style="margin-left:8px; font-size:12px;"> Music Volume
+            <input id="music-slider" type="range" min="1" max="5" step="0.5" value="0">
+        </label>-->
     </div>
 
     <div id="message" class="panel"></div>
