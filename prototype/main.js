@@ -23,7 +23,8 @@ const TEXTURE_FILES = {
     pipe2: 'textures/pipe2.png',
     pipe3: 'textures/pipe3.png',
     pipe4: 'textures/pipe4.png',
-
+    pipe5: 'textures/pipe5.png',
+    pipe6: 'textures/pipe6.png',
     
     TempleWall: 'textures/Temple_Wall_repeat.png',
     CloudPlatforms: 'textures/Cloud_texture.png',
@@ -40,7 +41,7 @@ let gl, canvas, renderer, meshes, textures;
 let player, camera, game;
 const stack = new MatrixStack();
 const keys = {};
-const input = { interact: false, clickX: null, clickY: null, };
+const input = { interact: false, clickX: null, clickY: null, clickedTiles: null};
 let lastTime = null;
 let time = 0;
 
@@ -78,8 +79,9 @@ window.onload = function init() {
         pipe2: textureFor('pipe2', () => G.makeHullTexture(gl)),
         pipe3: textureFor('pipe3', () => G.makeHullTexture(gl)),
         pipe4: textureFor('pipe4', () => G.makeHullTexture(gl)),
+        pipe5: textureFor('pipe5', () => G.makeHullTexture(gl)),
+        pipe6: textureFor('pipe6', () => G.makeHullTexture(gl)),
 
-        
         TempleWall: textureFor('TempleWall',   () => G.makeRockTexture(gl)),
         CastleWall: textureFor('CastleWall',   () => G.makeRockTexture(gl)),
         cloud: textureFor('cloud',   () => G.makeRockTexture(gl)),
@@ -160,15 +162,59 @@ function setupInput() {
 
         input.clickX = Math.round(e.clientX - rect.left);
         input.clickY = Math.round(e.clientY - rect.top);
+        if (game.phase === 'cave') {
+        const aspect = canvas.width / canvas.height;
+        const zoom = camera.currentZoom;
+
+        const screenX = (input.clickX / canvas.clientWidth) * 2 - 1;
+        const screenY = 1 - (input.clickY / canvas.clientHeight) * 2;
+
+        const halfWidth = zoom * aspect;
+        const halfHeight = zoom;
+
+        const up = normalize(camera.upv);
+        const forward = normalize(subtract(camera.at, camera.eye));
+        const right = normalize(cross(forward, up));
+        const cameraUp = normalize(cross(right, forward));
+
+        const rayStart = add(
+            camera.eye,
+            add(
+                mult(screenX * halfWidth, right),
+                mult(screenY * halfHeight, cameraUp)
+            )
+        );
+
+        const t = (-5.9 - rayStart[2]) / forward[2];
+
+        const caveX = rayStart[0] + t * forward[0];
+        const caveY = rayStart[1] + t * forward[1];
+
+        const padding = 0.15;
+
+        input.clickedTile = game.tileBounds.findIndex(
+            ([minX, maxX, minY, maxY]) =>
+                caveX >= minX - padding &&
+                caveX <= maxX + padding &&
+                caveY >= minY - padding &&
+                caveY <= maxY + padding
+        );
+    }
     }, true);
     
-
-    canvas.addEventListener('wheel', (e) => {
+// fixed canvas to window zoom error - n
+    window.addEventListener('wheel', (e) => {
+        if (game.phase === "cave"){ return;        }
         e.preventDefault();
         camera.zoom = Math.min(14, Math.max(3, camera.zoom + Math.sign(e.deltaY) * 0.5));
         setZoomSlider(camera.zoom);
     }, { passive: false });
 
+    //  play again  fix
+    document.getElementById('btn-again').addEventListener('click', () => {
+        resetGame();
+        document.getElementById('win').style.display = 'none';
+});
     
 }
 
@@ -197,6 +243,10 @@ function render(now) {
     if (game.phase === 'explore') player.update(dt, keys, planetWorld(game, player.planet));
     updateGame(game, player, dt, input);
     input.interact = false;
+    if (game.phase === 'cave') { //locking zoom for cave scene
+        camera.zoom = 5; 
+        camera.currentZoom = 5;
+}
     camera.update(dt, cameraTarget(game, player));
 
     // ---------- draw ----------

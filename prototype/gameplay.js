@@ -45,7 +45,28 @@ const CAVE1Entrance= {
     baseR: 1.9,
 }
 
- 
+
+const puzzleTextureNumbers = [
+    [1, 2, 6],
+    [1, 2, 3, 4],
+    [2, 4],
+    [1, 2, 3, 4, 5],
+
+    [1, 6],
+    [1, 3, 4],
+    [2, 4, 5],
+    [1, 2, 3],
+
+    [1, 4, 5],
+    [2, 3, 5],
+    [1, 2, 3],
+    [3, 4, 5],
+
+    [1, 2, 3, 6],
+    [2, 4, 6],
+    [1, 5],
+    [1, 2, 3, 4, 5]
+]; 
 
 const V_T1 = tangentFor(VOLCANO.dir);
 const V_T2 = cross(VOLCANO.dir, V_T1);
@@ -89,8 +110,8 @@ const castle = {
 const TO_SPAWN = normalize(subtract(vec3(0, 1, 0), mult(dot(vec3(0, 1, 0), SHIP_DIR), SHIP_DIR)));
 const A_LANDING = normalize(add(mult(Math.cos(2.0 / A.radius), SHIP_DIR), mult(Math.sin(2.0 / A.radius), TO_SPAWN)));
 
-const PART_DEFS = [
-    { id: 'fuel',   name: 'Fuel Cell',     planet: 0, dir: [-0.7, -0.2, 0.9], color: [0.3, 1.0, 0.4] }, //We might have to configure for more parts? 
+const PART_DEFS = [ //changed fuel cell dir to be in front of the cave for when cave puzzle is finished - N
+    { id: 'fuel',   name: 'Fuel Cell',     planet: 0, dir: [0, -0.1, 0.2], color: [0.3, 1.0, 0.4], caveWon: true }, //We might have to configure for more parts? 
                                                                                         //One should Go at the end of nora's dungeon. 
                                                                                         //One on planet b or in that dungeon.
                                                                                         //Then one after completing the planet C dungeon. Right?
@@ -160,6 +181,7 @@ export function createGame() {
     //let pyramidXSizeConstant = 4.5
     //let pyramidZSizeConstant = 4.5
     //let pyramidYSizeConstant = 2.5
+
 
     // the part on planet B sits on the far side from where you land
     const parts = PART_DEFS.map(d => ({
@@ -315,47 +337,83 @@ function updateFlight(game, player, dt) {
     }
 }
 
-// mark
 function cavePhase(game, player, dt, input) {
+
     if (!game || !input) return;
 
-    if (input.clickX !== null && input.clickY !== null) {
-        const c = document.querySelector("canvas");
-        const w = (c && c.clientWidth) || window.innerWidth;
-        const h = (c && c.clientHeight) || window.innerHeight;
+    console.log("CLICKED TILE:", input.clickedTile);
 
-        const nx = input.clickX / w; // 0 (left) -> 1 (right)
-        const ny = input.clickY / h; // 0 (top)  -> 1 (bottom)
+    if (input.clickedTile !== null) {
+        const hitIndex = input.clickedTile;
 
-        // Adjust spanX/spanY (size) and offsetX/offsetY (shift) to line up with your blocks
-        const spanX = 4.5;
-        const spanY = 8.5;
-        const offsetX = 0;
-        const offsetY = 0;
-
-        const caveX = (nx * 2 - 1) * spanX + offsetX;
-        const caveY = (1 - ny) * spanY + offsetY;
-
-        const bounds = game.tileBounds || [];
-        const hitIndex = bounds.findIndex(
-            ([minX, maxX, minY, maxY]) =>
-                caveX >= minX && caveX <= maxX && caveY >= minY && caveY <= maxY
-        );
-
-        if (hitIndex !== -1) {
+        if (hitIndex >= 0 && hitIndex < 16) {
             game.pathPuzzle = game.pathPuzzle || {};
             game.pathPuzzle.tileIndices = game.pathPuzzle.tileIndices || [];
 
-            const nextTex = ((game.pathPuzzle.tileIndices[hitIndex] || 0) + 1) % 4;
+            const current = game.pathPuzzle.tileIndices[hitIndex];
+
+            let nextTex;
+
+            if (current === undefined) {
+                nextTex = 0;
+            } else {
+                nextTex = (current + 1) % puzzleTextureNumbers[hitIndex].length;            }
+
             game.pathPuzzle.tileIndices[hitIndex] = nextTex;
 
-            say(game, `Block ${hitIndex}`, 2);
+
+            say(game, `Selected Block ${hitIndex+1}. Click again to rotate`, 2);
         }
 
-        input.clickX = null;
-        input.clickY = null;
+        input.clickedTile = null;
+    }
+
+    game.pathPuzzle = game.pathPuzzle || {};
+    game.pathPuzzle.tileIndices = game.pathPuzzle.tileIndices || [];
+
+
+    const winPuz = [
+        2, 4, 4, 4,
+        6, 4, 5, -1,
+        5, -1, 3, -1,
+        6, 4, 1, -1
+    ];
+
+    let correctTiles = 0;
+    
+
+    for (let i = 0; i < 16; i++) {
+        const current = game.pathPuzzle.tileIndices[i] ?? 0;
+        const currentPNG = puzzleTextureNumbers[i][current];
+
+        if (winPuz[i] === -1 || currentPNG === winPuz[i]) {
+            correctTiles++;
+        }
+    }
+
+
+
+
+    if (correctTiles === 16 && game.puzStatus  !== true) {
+        game.puzStatus = true;
+        say(game, "Puzzle Completed! Exiting Cave...");
+
+        setTimeout(function() {
+            fade.style.opacity = 1;
+
+            setTimeout(function() {
+                game.phase = "explore";
+                game.nearCave = false;
+                fade.style.opacity = 0;
+            }, 1000);
+
+        }, 2500);
+        say(game, "Good work! Collect the fuel cell!", 2);
+
+
     }
 }
+   
 
 //audio
 let collectAudio = document.getElementById("collectItemAudio");
@@ -389,9 +447,9 @@ export function updateGame(game, player, dt, input) {
             standardMusic.play();
         }
 
-    
-    //////////// !!! mark
+        if (game.puzStatus!== true) {
             if (game.nearCave){
+
                 game.phase = "cave";
                 say(game, 'You entered a cave! Solve the puzzle.', 4);
                 fade.style.opacity = 1;
@@ -403,12 +461,15 @@ export function updateGame(game, player, dt, input) {
                 
             }
                 
-            
-            ////////////////////////
+        }
+        else if (game.puzStatus === true) {
+            game.obstacles[0].push({dir: CAVE1Entrance.dir, radius: CAVE1Entrance.baseR * .8, topRadius: CAVE1Entrance.baseR, height: CAVE1Entrance.height});
+
+                }
 
         // pick up parts on this planet by walking into them
-        for (const p of game.parts) {
-            if (p.collected || p.planet !== planet.id) continue;
+        for (const p of game.parts) {  //cant pick up fuel till cave puzzle completed
+            if (p.collected || p.planet !== planet.id || (p.id === "fuel" && game.puzStatus !==true)) continue;
             if (length(subtract(pPos, worldPos(planet, p.dir, 0.6))) < 1.1) {
                 collectAudio.play();
                 p.collected = true;
@@ -517,7 +578,6 @@ export function updateGame(game, player, dt, input) {
         cavePhase(game, player, dt, input);
      
 
-// mark
     }
         else if (game.phase === 'templeTransition') {
             //This needs to stay empty, else the transition might impact the final sequence.
@@ -552,16 +612,16 @@ export function cameraTarget(game, player) {
         return { pos, up: SHIP_DIR, forward: SHIP_FWD, zoomScale: 1 + game.escapeTime * 0.4 };
     }
 
-    if (game.phase === 'cave') { //mark
+    if (game.phase === 'cave') { 
         return {
             pos: vec3(0, 4, -1.5),
             up: vec3(0, 1.5, 0),
             forward: vec3(0, 0, -1),
             zoomScale: 0.8,
             upOffset: 1.5,
-            backOffset: 12,
+            backOffset: 9,
         };
-           //
+           
         }
     // lower, more side-on camera near the volcano / in the air so jump heights are readable
     const parkour = game.nearVolcano || player.h > 0.3 || game.phase === 'geyser';
@@ -615,7 +675,8 @@ export function drawWorld(renderer, meshes, textures, stack, game, time, planetM
 
     // collectible parts: spinning, bobbing stars
     for (const p of game.parts) {
-        if (p.collected) continue;
+        // hid visisbility of fuel cell till the cave puzzle completed - N
+        if (p.collected || (p.id === "fuel" && game.puzStatus !== true)) continue;
         const pl = PLANETS[p.planet];
         stack.load(surfaceFrame(p.dir, tangentFor(p.dir), pl.radius, pl.center));
         stack.mul(translate(0, 0.7 + 0.15 * Math.sin(time * 2.5), 0));
@@ -658,7 +719,7 @@ function drawCave1 (renderer, meshes, textures, stack, game, time) {
 
 }
 
-//I believe this is the planet 1 cave.
+//I believe this is the planet 1 cave. -yes the entrance to it
 function drawCaveEnterance(renderer, meshes, textures, stack, game, time) {
     const R = A.radius; 
     stack.load(surfaceFrame(CAVE1Entrance.dir, CE_T1, R-0.3, A.center));
@@ -670,8 +731,28 @@ function drawCaveEnterance(renderer, meshes, textures, stack, game, time) {
     stack.pop();   
 }
 
-function drawCaveInterior(renderer, meshes, textures, stack, game, time) { //mark
-    const puzzleTextures = [textures.pipe1, textures.pipe2, textures.pipe3, textures.pipe4];
+function drawCaveInterior(renderer, meshes, textures, stack, game, time) { //planet 1 cave interior
+    const puzzleTextures = [
+        [textures.pipe1, textures.pipe2, textures.pipe6],
+        [textures.pipe1, textures.pipe2, textures.pipe3, textures.pipe4],
+        [textures.pipe2, textures.pipe4],
+        [textures.pipe1, textures.pipe2, textures.pipe3, textures.pipe4, textures.pipe5],
+
+        [textures.pipe1, textures.pipe6],
+        [textures.pipe1, textures.pipe3, textures.pipe4],
+        [textures.pipe2, textures.pipe4, textures.pipe5],
+        [textures.pipe1, textures.pipe2, textures.pipe3],
+
+        [textures.pipe1, textures.pipe4, textures.pipe5],
+        [textures.pipe2, textures.pipe3, textures.pipe5],
+        [textures.pipe1, textures.pipe2, textures.pipe3],
+        [textures.pipe3, textures.pipe4, textures.pipe5],
+
+        [textures.pipe1, textures.pipe2, textures.pipe3, textures.pipe6],
+        [textures.pipe2, textures.pipe4, textures.pipe6],
+        [textures.pipe1, textures.pipe5],
+        [textures.pipe1, textures.pipe2, textures.pipe3, textures.pipe4, textures.pipe5]
+    ];
     const tileIndices = (game && game.pathPuzzle && game.pathPuzzle.tileIndices) || [];
 
     const FloorMat = material({
@@ -689,16 +770,26 @@ function drawCaveInterior(renderer, meshes, textures, stack, game, time) { //mar
         emissive: [0.12, 0.1, 0.12],
     });
 
-    const tileMats = puzzleTextures.map((tex) =>
-        material({
-            diffuse: [1, 1, 1],
-            texture: tex,
-            texScale: [1, 1],
-            specular: [0.2, 0.2, 0.2],
-            shininess: 16,
-        })
+    const tileMats = puzzleTextures.map((tileTextures) =>
+        tileTextures.map((tex) =>
+            material({
+                diffuse: [1, 1, 1],
+                texture: tex,
+                texScale: [1, 1],
+                specular: [0.2, 0.2, 0.2],
+                shininess: 16,
+            })
+        )
     );
 
+
+    const inProgMat = material({
+        diffuse: [0.6, 0.24, 0.27],
+        texture: textures.rock,
+        texScale: [4, 4],
+        specular: [0.05, 0.05, 0.05],
+        emissive: [0.12, 0.1, 0.12],
+    })
     stack.load(translate(0, 0, 0));
 
     // Floor
@@ -715,6 +806,25 @@ function drawCaveInterior(renderer, meshes, textures, stack, game, time) { //mar
         renderer.draw(meshes.cube, stack.top, WallMat);
     stack.pop();
 
+    if (game.puzStatus) {
+        inProgMat.diffuse[0] = 0.28;
+        inProgMat.diffuse[1] = 0.60;
+    
+    }
+
+    //button LHS
+    stack.push();
+        stack.mul(translate(6.5, 7, -5.9));
+        stack.mul(scale(5, 1.3, 0.2));
+        renderer.draw(meshes.cube, stack.top, inProgMat);
+    stack.pop();
+
+    //button RHS
+    stack.push();
+        stack.mul(translate(-6.5, 3.3, -5.9));
+        stack.mul(scale(5, 1.3, 0.2));
+        renderer.draw(meshes.cube, stack.top, inProgMat);
+    stack.pop();
     // wall puzzle
     const cols = 4;
     const rows = 4;
@@ -740,15 +850,16 @@ function drawCaveInterior(renderer, meshes, textures, stack, game, time) { //mar
             const maxY = y + half;
             if (game) game.tileBounds.push([minX, maxX, minY, maxY]);
 
-            const texIdx = (tileIndices[idx] || 0) % tileMats.length;
-
+            const texIdx = (tileIndices[idx] || 0) % tileMats[idx].length;
             stack.push();
                 stack.mul(translate(x, y, blockZ));
                 stack.mul(scale(tileSize, tileSize, 0.2));
-                renderer.draw(meshes.cube, stack.top, tileMats[texIdx]);
-            stack.pop();
+                renderer.draw(meshes.cube, stack.top, tileMats[idx][texIdx]);            
+                stack.pop();
         }
     }
+
+    
 }
 
 function transportToTempleRoof(game, player) {
