@@ -9,8 +9,9 @@ export const PLANETS = [
     // texRotX: rotates the planet mesh so the texture's pole "pinch" isn't where the player walks first
     { id: 0, name: 'Planet 1', center: vec3(0, 0, 0),     radius: 6.0, texture: 'planet',  tint: [0.75, 0.62, 0.8], texScale: [6, 3],   texRotX: 90 },
     { id: 1, name: 'Planet 2',  center: vec3(26, 7, -14),  radius: 4.5, texture: 'planet2', tint: [0.45, 0.8, 0.72], texScale: [5, 2.5], texRotX: 0 },
+    { id: 2, name: 'Planet 3',  center: vec3(-12, 30, -122),  radius: 7.5, texture: 'planet3', tint: [0.95, 0.5, 0.62], texScale: [5, 2.5], texRotX: 45 }
 ];
-const A = PLANETS[0], B = PLANETS[1];
+const A = PLANETS[0], B = PLANETS[1], C = PLANETS[2];
 const dirOf = (x, y, z) => normalize(vec3(x, y, z));
 // kept for older code that still expects a single radius
 export const PLANET_RADIUS = A.radius;
@@ -51,17 +52,51 @@ const C_T1 = tangentFor(CAVE1.dir);
 const CE_T1 = tangentFor(CAVE1Entrance.dir);
 
 // Return vent on planet B (step on it to fly back), and where you land on each planet
-const TOWARD_A = normalize(subtract(A.center, B.center));
-const B_LANDING = normalize(add(TOWARD_A, mult(0.35, tangentFor(TOWARD_A))));
-const VENT_DIR = normalize(add(TOWARD_A, mult(-0.35, tangentFor(TOWARD_A))));
+// Yo oz, modified this so that there can be a vent from C to A as well -H
+const TOWARD_A_FROM_B = normalize(subtract(A.center, B.center));
+const TOWARD_A_FROM_C = normalize(subtract(A.center, C.center));
+
+
+const B_LANDING = normalize(add(TOWARD_A_FROM_B, mult(0.35, tangentFor(TOWARD_A_FROM_B))));
+const VENT_DIR = normalize(add(TOWARD_A_FROM_B, mult(-0.35, tangentFor(TOWARD_A_FROM_B))));
+
+
+//Planet B to C stuff
+const TOWARD_C = normalize(subtract(C.center, B.center))
+const C_TOWARD_B = normalize(subtract(B.center, C.center)); // I was going through the planet when launching. So that was rough
+
+const C_LANDING = normalize(add(C_TOWARD_B, mult(0.35, tangentFor(C_TOWARD_B))));
+
+const temple = {
+    dir: TOWARD_C,
+    height: 1.5,
+    width: 3.5,
+    depth: 3.5,
+    baseR: 3.5,
+}
+
+const castle = {
+    dir: dirOf(11.5, -13.5, -4),
+    height: 1.5,
+    width: 3.5,
+    depth: 3.5,
+    baseR: 3.5,
+
+}
+
 // land ~2 units from the ship (inside its "press E" range, outside its collision radius)
 const TO_SPAWN = normalize(subtract(vec3(0, 1, 0), mult(dot(vec3(0, 1, 0), SHIP_DIR), SHIP_DIR)));
 const A_LANDING = normalize(add(mult(Math.cos(2.0 / A.radius), SHIP_DIR), mult(Math.sin(2.0 / A.radius), TO_SPAWN)));
 
 const PART_DEFS = [
-    { id: 'wing',   name: 'Wing Panel',    planet: 0, dir: [-1.0, 0.2, -0.4], color: [0.3, 0.6, 1.0] },
-    { id: 'fuel',   name: 'Fuel Cell',     planet: 0, dir: [-0.7, -0.2, 0.9], color: [0.3, 1.0, 0.4] },
-    { id: 'engine', name: 'Thruster Core', planet: 1, dir: null,              color: [1.0, 0.55, 0.2] },  // far side of B
+    { id: 'fuel',   name: 'Fuel Cell',     planet: 0, dir: [-0.7, -0.2, 0.9], color: [0.3, 1.0, 0.4] }, //We might have to configure for more parts? 
+                                                                                        //One should Go at the end of nora's dungeon. 
+                                                                                        //One on planet b or in that dungeon.
+                                                                                        //Then one after completing the planet C dungeon. Right?
+                                                                                        // But the issue is we need a default one so people know what to look for -H
+    { id: 'engine', name: 'Thruster Core', planet: 1, dir: null,              color: [0.3, 0.6, 1.0] },  // far side of B
+    { id: 'wing',   name: 'Wing Panel',    planet: 2, dir: [-1.0, 0.2, -0.4], color: [1.0, 0.55, 0.2 ]}, //I need to reposition this one once the final castle is organized
+
 ];
 
 // Platform spiral around the volcano. Each step is a bit higher than the last one
@@ -120,15 +155,29 @@ function makeRocks(planet, count, keepOut, seed) {
 }
 
 export function createGame() {
+    //note
+    //let pyramidXSizeConstant = 4.5
+    //let pyramidZSizeConstant = 4.5
+    //let pyramidYSizeConstant = 2.5
+
     // the part on planet B sits on the far side from where you land
     const parts = PART_DEFS.map(d => ({
         ...d,
-        dir: d.dir ? dirOf(...d.dir) : normalize(add(negate(TOWARD_A), mult(0.5, tangentFor(TOWARD_A)))),
+        dir: d.dir ? dirOf(...d.dir) : normalize(add(negate(TOWARD_A_FROM_B), mult(0.5, tangentFor(TOWARD_A_FROM_B)))),
         collected: false,
         installed: false,
     }));
 
     const platforms = makePlatforms();
+    
+    //Platform for top of the temple
+    platforms.push({ 
+        planet: 1,               // Planet B
+        dir: TOWARD_C,           // The direction you calculated
+        top: temple.height,      // How high off the ground it is
+        size: 1.5,               // How wide the trigger area is
+        kind: 'templePeak'       // The custom name for your trigger!
+    });
 
     const keepA = [
         { dir: vec3(0, 1, 0), dist: 2 }, { dir: SHIP_DIR, dist: 2.5 }, { dir: A_LANDING, dist: 1.5 },
@@ -142,12 +191,14 @@ export function createGame() {
     const rocks = [...makeRocks(A, 14, keepA, 457), ...makeRocks(B, 9, keepB, 458)];
 
     // obstacles: upright shapes with a bottom radius, top radius and height
-    const obstacles = [[], []]; //These obstacles are actually about creating the collision for the things you've draw. -H
+    const obstacles = [[], [], []]; //These obstacles are actually about creating the collision for the things you've draw. -H
                                 //second note. I made these have top collision now. They didn't before, and I didn't know why. 
                                 //THIRD AND MOST IMPORTANTLY. Each index represents a planet. 0 is A. 1 is B
     obstacles[0].push({ dir: SHIP_DIR, radius: 1.3, topRadius: 1.3, height: 1.4 });
     obstacles[0].push({ dir: VOLCANO.dir, radius: VOLCANO.baseR, topRadius: VOLCANO.topR, height: VOLCANO.height });
     obstacles[1].push({ dir: VENT_DIR, radius: 1, topRadius: 1, height: 0.5 });
+    obstacles[1].push({ dir: TOWARD_C, radius: 1.5, topRadius: 1, height: 2.5}); 
+    obstacles[2].push({ dir: TOWARD_A_FROM_C, radius: 1, topRadius: 1, height: 0.5 });
 
     for (const r of rocks) obstacles[r.planet].push({ dir: r.dir, radius: r.size, topRadius: r.size * 0.6, height: r.size * 0.9 });
 
@@ -340,16 +391,35 @@ export function updateGame(game, player, dt, input) {
         if (on && on.kind === 'summit') {
             game.phase = 'geyser';
             game.geyserTime = 0;
-            say(game, 'The geyser is rumbling...', 2);
+            say(game, 'The temple whirrs to life', 2);
         }
 
         // stepped on the return vent on planet B -> fly back to the ship
         if (planet === B && player.onGround && arc(player.up, VENT_DIR, B.radius) < 0.6) {
-            game.phase = 'vent'; 
+            game.phase = 'ventHome'; 
             game.geyserTime = 0;
-           
+          
             
+        } 
+        if (planet === C && player.onGround && arc(player.up, TOWARD_A_FROM_C, C.radius) < 0.6) {
+            game.phase = 'ventHome'; 
+            game.geyserTime = 0;
+          
+        }
+        
+
+        if (planet === B && game.doorLightPos) {
+            const doorPos = vec3(game.doorLightPos[0], game.doorLightPos[1], game.doorLightPos[2])
             
+            if (length(subtract(pPos, doorPos)) < 1.5) { //number is the distance to the door
+                transportToTempleRoof(game, player);
+            }
+        }
+
+        if (on && on.kind === 'templePeak') {
+            game.phase = 'ventToPlanet3';
+            game.geyserTime = 0;
+            say(game, 'The geyser is rumbling...', 2);
         }
 
         if (input.interact) {
@@ -379,22 +449,33 @@ export function updateGame(game, player, dt, input) {
             say(game, 'LAUNCH!', 2);
             startFlight(game, player, B, B_LANDING, 3.0);
         }
-    } else if (game.phase == 'vent') {
+    } else if (game.phase == 'ventHome') {
 
         game.geyserTime += dt;
         say(game, 'WHOOSH!', 2); 
         if (game.geyserTime > 1.3) {
 
             startFlight(game, player, A, A_LANDING, 2.5);
+        }
+    } else if (game.phase == 'ventToPlanet3') {
+
+        game.geyserTime += dt;
+        say(game, 'WHOOSH!', 2); 
+        if (game.geyserTime > 1.3) {
+            startFlight(game, player, C, C_LANDING, 2.5);
 
         }
-
     } else if (game.phase === 'flight') {
         updateFlight(game, player, dt);
     } 
     else if (game.phase === "cave") { // if player is inside the cave
         ///
     }
+        else if (game.phase === 'templeTransition') {
+            //This needs to stay empty, else the transition might impact the final sequence.
+            // Add other fade to black stuff here if there's an issue.
+
+        }
     else {
         // escape sequence: rumble for a second, then accelerate away from the planet
         game.escapeTime += dt;
@@ -493,9 +574,13 @@ export function drawWorld(renderer, meshes, textures, stack, game, time, planetM
     }
 
     drawVolcano(renderer, meshes, textures, stack, game, time);
-    drawVent(renderer, meshes, textures, stack, time);
+    drawBtoAVent(renderer, meshes, textures, stack, time);
+    drawCtoAVent(renderer, meshes, textures, stack, time)
+    drawPyramid(renderer, meshes, textures, stack, time);
     drawCave1(renderer, meshes, textures, stack, game, time); 
     drawCaveEnterance(renderer, meshes, textures, stack, game, time);
+    drawBuildingPyramid(renderer, meshes, textures, stack, time, game);
+    drawCastle(renderer, meshes, textures, stack, time, game) ;
 
     // steam puffs: grow and shrink over their life
     for (const p of game.puffs) {
@@ -519,6 +604,7 @@ function drawCave1 (renderer, meshes, textures, stack, game, time) {
 
 }
 
+//I believe this is the planet 1 cave.
 function drawCaveEnterance(renderer, meshes, textures, stack, game, time) {
     const R = A.radius; 
     stack.load(surfaceFrame(CAVE1Entrance.dir, CE_T1, R-0.3, A.center));
@@ -549,6 +635,31 @@ function drawCaveInterior(renderer, meshes, textures, stack, game, time) {
 
     inside(0, 3.5, -6.6, 30, 7, 1.2);
 }
+
+
+function transportToTempleRoof(game, player) {
+
+    game.phase = 'templeTransition'; 
+    if (typeof fadingScreen !== 'undefined') fadingScreen.style.opacity = 1;
+
+    setTimeout(function() {
+        //temporary teleport. Make this transition to a different screen for gameplay purposes
+        player.placeOn(B, TOWARD_C, tangentFor(TOWARD_C));
+        
+        // Put them slightly above the roof so they drop onto the invisible platform
+        player.h = temple.height + 0.5; 
+        player.vh = 0; 
+        
+        game.phase = 'explore'; 
+        if (typeof fadingScreen !== 'undefined') fadingScreen.style.opacity = 0; 
+        
+    }, 1000); // 1 second fade
+}
+
+
+
+
+
 
 function drawVolcano(renderer, meshes, textures, stack, game, time) {
     const R = A.radius;
@@ -589,9 +700,9 @@ function drawVolcano(renderer, meshes, textures, stack, game, time) {
     }
 }
 
-function drawVent(renderer, meshes, textures, stack, time) {
+function drawBtoAVent(renderer, meshes, textures, stack, time) {
     // a low ring of rocks on planet B with a glowing center
-    stack.load(surfaceFrame(VENT_DIR, tangentFor(VENT_DIR), B.radius, B.center)); //Change these back to B's stuff after hunter
+    stack.load(surfaceFrame(VENT_DIR, tangentFor(VENT_DIR), B.radius, B.center)); 
     for (let i = 0; i < 8; i++) {
         stack.push();
             stack.mul(rotateY(i * 45));
@@ -617,6 +728,104 @@ function drawVent(renderer, meshes, textures, stack, time) {
 
 
 }
+
+function drawCtoAVent(renderer, meshes, textures, stack, time) {
+    // a low ring of rocks on planet B with a glowing center
+    const g = 0.4 + 0.2 * Math.sin(time * 5); //This is a lighting control variable btw nora. I had no clue for a bit -H
+    stack.mul(scale(0.45, 0.04, 0.45));
+    
+    renderer.draw(meshes.sphere, stack.top, material({ diffuse: [0.6, 1, 1], emissive: [0.3 * g, g, g] }));
+    
+    stack.load(surfaceFrame(TOWARD_A_FROM_C, tangentFor(TOWARD_A_FROM_C), C.radius, C.center));
+    stack.push();
+        stack.mul(translate(0, 0.20, 0));
+        stack.mul(scale(2, 0.50, 2.05));
+        renderer.draw(meshes.ventBase, stack.top, material({ diffuse: [1, 1, 1], texture: textures.planet2Pedestal }));
+    stack.pop();
+    
+    //renderer.draw(meshes.cube, stack.top, material({ diffuse: [0.3, 1, 1], emissive: [0.3 * g, g, g] }));
+
+
+}
+
+function drawPyramid(renderer, meshes, textures, stack, time) {    
+    const g = 0.4 + 0.2 * Math.sin(time * 5); //This is a lighting control variable btw nora. I had no clue for a bit -H
+    stack.mul(scale(0.45, 0.04, 0.45));
+    
+    renderer.draw(meshes.sphere, stack.top, material({ diffuse: [0.6, 1, 1], emissive: [0.3 * g, g, g] }));
+    
+    stack.load(surfaceFrame(VENT_DIR, tangentFor(VENT_DIR), A.radius, A.center));
+    stack.push();
+        stack.mul(translate(0, 0.20, 0));
+        stack.mul(scale(2, 0.50, 2.05));
+        renderer.draw(meshes.pyramid, stack.top, material({ diffuse: [1, 1, 1], texture: textures.planet2Pedestal }));
+    stack.pop();
+
+}
+
+function drawBuildingPyramid(renderer, meshes, textures, stack, time, game) {    
+    let pyramidXSizeConstant = 2.5
+    let pyramidZSizeConstant = 2.5
+    let pyramidYSizeConstant = 1.5
+    stack.load(surfaceFrame(TOWARD_C, tangentFor(TOWARD_C), B.radius, B.center));  //Replace the A with B
+    for (let i = 0; i < 4; i++) {
+        stack.push();
+            stack.mul(rotateY(i * 90));
+            stack.mul(translate(pyramidXSizeConstant/1.7, 0.55, pyramidZSizeConstant/1.7));
+            stack.mul(scale(pyramidXSizeConstant/3, pyramidYSizeConstant * 3, pyramidZSizeConstant/3));
+            renderer.draw(meshes.cube, stack.top, material({ diffuse: [0.35, 0.5, 0.5], texture: textures.planet2Pedestal }));
+        stack.pop();
+    }
+
+    
+    const g = 0.4 + 0.2 * Math.sin(time * 5); //This is a lighting control variable btw nora. I had no clue for a bit -H
+    stack.mul(scale(0.45, 0.04, 0.45));
+    
+    renderer.draw(meshes.sphere, stack.top, material({ diffuse: [0.6, 1, 1], emissive: [0.3 * g, g, g] }));
+    
+    stack.load(surfaceFrame(TOWARD_C, tangentFor(TOWARD_C), B.radius, B.center));
+    stack.push();
+        stack.mul(translate(0, 0.20, 0));
+        stack.mul(scale(pyramidXSizeConstant, pyramidYSizeConstant, pyramidZSizeConstant));
+        renderer.draw(meshes.buildingPyramid, stack.top, material({ diffuse: [1, 1, 1], texture: textures.TempleWall , texScale: [4, 3]}));
+    stack.pop();
+
+    stack.load(surfaceFrame(TOWARD_C, tangentFor(TOWARD_C), B.radius, B.center));  //Replace the A with B
+    stack.push();
+        stack.mul(rotateY(90))
+        stack.mul(translate(-.79, 0, -0.1));
+        stack.mul(scale(pyramidXSizeConstant/2, pyramidYSizeConstant/2, pyramidZSizeConstant/2));
+        renderer.draw(meshes.buildingPyramid, stack.top, material({ diffuse: [1, 1, 0], emissive: [1, 1, 0]}));
+        let doorWorldPos = mult(stack.top, vec4(0, 0, 0.5, 1)); 
+        
+        game.doorLightPos = [doorWorldPos[0], doorWorldPos[1], doorWorldPos[2]];
+
+
+    stack.pop();
+
+}
+
+function drawCastle(renderer, meshes, textures, stack, time, game) {    //Depending on time I'd like a change this to a different more fitting shape and do some stuff with it. 
+                                                                        //Thinking an interior that then leads to a courtyard where you can collect the part
+                                                                        //For now though it's a copy of the pyramid with a different texture -H
+    let pyramidXSizeConstant = 2.5
+    let pyramidZSizeConstant = 2.5
+    let pyramidYSizeConstant = 1.5
+    const g = 0.4 + 0.2 * Math.sin(time * 5); //This is a lighting control variable btw nora. I had no clue for a bit -H
+    stack.mul(scale(0.45, 0.04, 0.45));
+    
+    renderer.draw(meshes.sphere, stack.top, material({ diffuse: [0.6, 1, 1], emissive: [0.3 * g, g, g] }));
+    
+    stack.load(surfaceFrame(castle.dir, tangentFor(castle.dir), C.radius, C.center));
+    stack.push();
+        stack.mul(translate(0, 0.20, 0));
+        stack.mul(scale(pyramidXSizeConstant, pyramidYSizeConstant, pyramidZSizeConstant));
+        renderer.draw(meshes.buildingPyramid, stack.top, material({ diffuse: [1, 1, 1], texture: textures.CastleWall }));
+    stack.pop();
+
+}
+
+
 
 function drawShip(renderer, meshes, textures, stack, game, time) {
     const R = A.radius;

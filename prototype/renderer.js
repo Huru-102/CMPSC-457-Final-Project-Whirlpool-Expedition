@@ -22,6 +22,8 @@ export function createRenderer(gl) {
             normalMatrix: u("uNormalMatrix"),
             pointSize:    u("uPointSize"),
             lightPos:     u("uLightPos"),
+            lightColor:   u("uLightColor"), //We're gonna have to edit this for new lights from stuff
+            lightPos:     u("uLightPos"),
             lightColor:   u("uLightColor"),
             ambient:      u("uAmbient"),
             diffuse:      u("uDiffuse"),
@@ -54,6 +56,12 @@ export function createRenderer(gl) {
     r.setLight = (worldPos) => {
         const e = mult(r.view, vec4(worldPos[0], worldPos[1], worldPos[2], 1.0));
         gl.uniform3f(r.loc.lightPos, e[0], e[1], e[2]);
+    };
+
+    r.setLight2 = (worldPos, color) => { //This is a door light. I'm trying to make locations obviously enterable with a yellow game design glow. -H 11/25
+        const e = mult(r.view, vec4(worldPos[0], worldPos[1], worldPos[2], 1.0));
+        gl.uniform3f(r.loc.lightPos2, e[0], e[1], e[2]);
+        gl.uniform3f(r.loc.lightColor2, color[0], color[1], color[2]);
     };
 
     r.setMaterial = (m) => {

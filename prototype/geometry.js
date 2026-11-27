@@ -161,6 +161,108 @@ export function frustumData(topR = 0.4, segments = 28) {
     return { positions, normals, texCoords };
 }
 
+export function pyramidData() {
+
+    const v = [
+        [-0.5, -0.5,  0.5], // 0: front-bottom-left
+        [ 0.5, -0.5,  0.5], // 1: front-bottom-right
+        [ 0.5, -0.5, -0.5], // 2: back-bottom-right
+        [-0.5, -0.5, -0.5], // 3: back-bottom-left
+        [ 0.0,  0.5,  0.0]  // 4: top-center (apex)
+    ];
+    const faces = [
+        { idx: [0, 1, 4, 4], n: [ 0.0, 0.4472, 0.8944]},  // Front triangle
+        { idx: [1, 2, 4, 4], n: [ 0.8944, 0.4472, 0.0]},  // Right triangle
+        { idx: [2, 3, 4, 4], n: [ 0.0, 0.4472, -0.8944]},   // Back triangle
+        { idx: [3, 0, 4, 4], n: [ 0.0, -1.0, 0.0]},   // Left triangle
+        { idx: [3, 2, 1, 0], n: [ 0.0, -1.0, 0.0]}  // Bottom quad
+    ];
+    const quadUV = [[0, 0], [1, 0], [1, 1], [0, 1]];
+    const positions = [], normals = [], texCoords = [];
+    for (const f of faces) {
+        for (const k of [0, 1, 2, 0, 2, 3]) {// two triangles per face
+            const p = v[f.idx[k]];
+            positions.push([p[0], p[1], p[2], 1.0]);
+            normals.push(f.n);
+            texCoords.push(quadUV[k]);
+        }
+    }
+    return { positions, normals, texCoords };
+}
+
+
+export function buildingPyramidData() {
+    const v = [
+        // BOTTOM BASE (y = -0.5)
+        [-0.75, -0.75,  0.75], // 0: front-bottom-left
+        [ 0.75, -0.75,  0.75], // 1: front-bottom-right
+        [ 0.75, -0.75, -0.75], // 2: back-bottom-right
+        [-0.75, -0.75, -0.75], // 3: back-bottom-left
+
+        // TOP BASE (y = 0.5)
+        [-0.2, 2,  0.1], // 4: front-top-left
+        [ 0.2, 2,  0.1], // 5: front-top-right
+        [ 0.2, 2, -0.1], // 6: back-top-right
+        [-0.2, 2, -0.1], // 7: back-top-left
+
+        // DOORWAY VERTICES (sitting perfectly on the sloped front wall)
+        [-0.20, -0.75,  0.75 ], // 8: door bottom-left
+        [ 0.20, -0.75,  0.75 ], // 9: door bottom-right
+        [ 0.15,  0.25,  0.514], // 10: door top-right
+        [-0.15,  0.25,  0.514]  // 11: door top-left
+    ];
+
+ 
+    const nFront  = getNormal(v[0], v[1], v[5]);
+    const nRight  = getNormal(v[1], v[2], v[6]);
+    const nBack   = getNormal(v[2], v[3], v[7]);
+    const nLeft   = getNormal(v[3], v[0], v[4]);
+    const nTop    = [0, 1, 0];  // Flat top always points straight up
+    const nBottom = [0, -1, 0]; // Flat bottom always points straight down
+
+    const faces = [
+        // FRONT FACE (Split for doorway)
+        { idx: [0, 8, 11, 4],  n: nFront }, // Left of door
+        { idx: [9, 1, 5, 10],  n: nFront }, // Right of door
+        { idx: [11, 10, 5, 4], n: nFront }, // Above door
+
+        // THE REST OF THE SHAPE
+        { idx: [1, 2, 6, 5], n: nRight },  // Right face
+        { idx: [2, 3, 7, 6], n: nBack },   // Back face
+        { idx: [3, 0, 4, 7], n: nLeft },   // Left face
+        { idx: [4, 5, 6, 7], n: nTop },    // Top face
+        { idx: [3, 2, 1, 0], n: nBottom }  // Bottom face
+    ];
+
+
+    const quadUV = [[0, 0], [1, 0], [1, 1], [0, 1]];
+    const positions = [], normals = [], texCoords = [];
+    for (const f of faces) {
+        for (const k of [0, 1, 2, 0, 2, 3]) {// two triangles per face
+            const p = v[f.idx[k]];
+            positions.push([p[0], p[1], p[2], 1.0]);
+            normals.push(f.n);
+            texCoords.push(quadUV[k]);
+        }
+    }
+    return { positions, normals, texCoords };
+}
+
+    // Helper to calculate normal using MVnew.js functions
+function getNormal(p1, p2, p3) {
+        // Convert raw arrays to MVnew vec3 objects
+    let t1 = vec3(p1[0], p1[1], p1[2]);
+    let t2 = vec3(p2[0], p2[1], p2[2]);
+    let t3 = vec3(p3[0], p3[1], p3[2]);
+    // U = p2 - p1, V = p3 - p1
+    let u = subtract(t2, t1);
+    let v_vec = subtract(t3, t1);
+    // Cross product and normalize
+    let n = normalize(cross(u, v_vec));
+    
+    // Return as a standard array so it pushes to your normals array correctly
+    return [n[0], n[1], n[2]];
+}
 // ---------- 3D five-point star (collectible ship parts) ----------
 export function starData(points = 5, outer = 0.5, inner = 0.22, rimZ = 0.08, tipZ = 0.2) {
     const rim = [];
@@ -307,3 +409,5 @@ export function makeHullTexture(gl, size = 128) {
     }
     return uploadTexture(gl, size, data);
 }
+
+
