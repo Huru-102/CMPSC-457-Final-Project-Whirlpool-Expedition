@@ -16,6 +16,12 @@ const TEXTURE_FILES = {
     planet2: 'textures/Planet_2_Rough.png',  // second planet (Kelpra)
     rock:   null,   // e.g. 'textures/rock.png'
     hull:   null,   // e.g. 'textures/hull.png'    (applied to each face of the ship's boxes)
+    pipe1: 'textures/pipe1.png',
+    pipe2: 'textures/pipe2.png',
+    pipe3: 'textures/pipe3.png',
+    pipe4: 'textures/pipe4.png',
+
+    
 };
 
 function textureFor(name, makeGenerated) {
@@ -27,9 +33,10 @@ let gl, canvas, renderer, meshes, textures;
 let player, camera, game;
 const stack = new MatrixStack();
 const keys = {};
-const input = { interact: false };
+const input = { interact: false, clickX: null, clickY: null, };
 let lastTime = null;
 let time = 0;
+
 
 window.onload = function init() {
     canvas = document.getElementById('gl-canvas');
@@ -54,6 +61,12 @@ window.onload = function init() {
         planet2: textureFor('planet2', () => G.makeRockTexture(gl)),
         rock:   textureFor('rock',   () => G.makeRockTexture(gl)),
         hull:   textureFor('hull',   () => G.makeHullTexture(gl)),
+        pipe1: textureFor('pipe1', () => G.makeRockTexture(gl)),
+        pipe2: textureFor('pipe2', () => G.makeHullTexture(gl)),
+        pipe3: textureFor('pipe3', () => G.makeHullTexture(gl)),
+        pipe4: textureFor('pipe4', () => G.makeHullTexture(gl)),
+
+        
     };
 
     camera = new Camera();
@@ -115,12 +128,31 @@ function setupInput() {
     window.addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
 
     // mouse: click the scene to interact, wheel to zoom
-    canvas.addEventListener('click', () => { input.interact = true; });
+    
+    canvas.addEventListener('click', () => { 
+        input.interact = true;
+        
+    
+    });
+
+    window.addEventListener("click", (e) => {
+        if (typeof e.clientX !== "number" || typeof e.clientY !== "number") return;
+
+        const canvasEl = document.querySelector("canvas");
+        const rect = canvasEl ? canvasEl.getBoundingClientRect() : { left: 0, top: 0 };
+
+        input.clickX = Math.round(e.clientX - rect.left);
+        input.clickY = Math.round(e.clientY - rect.top);
+    }, true);
+    
+
     canvas.addEventListener('wheel', (e) => {
         e.preventDefault();
         camera.zoom = Math.min(14, Math.max(3, camera.zoom + Math.sign(e.deltaY) * 0.5));
         setZoomSlider(camera.zoom);
     }, { passive: false });
+
+    
 }
 
 function resize() {

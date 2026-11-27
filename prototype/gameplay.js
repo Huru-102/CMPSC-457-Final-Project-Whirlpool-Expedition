@@ -44,6 +44,7 @@ const CAVE1Entrance= {
     baseR: 1.9,
 }
 
+ 
 
 const V_T1 = tangentFor(VOLCANO.dir);
 const V_T2 = cross(VOLCANO.dir, V_T1);
@@ -145,6 +146,7 @@ export function createGame() {
     const obstacles = [[], []];
     obstacles[0].push({ dir: SHIP_DIR, radius: 1.3, topRadius: 1.3, height: 1.4 });
     obstacles[0].push({ dir: VOLCANO.dir, radius: VOLCANO.baseR, topRadius: VOLCANO.topR, height: VOLCANO.height });
+    obstacles[0].push({dir: CAVE1.dir, radius: CAVE1.baseR * .8, topRadius: CAVE1.baseR, height: CAVE1.height})
     for (const r of rocks) obstacles[r.planet].push({ dir: r.dir, radius: r.size, topRadius: r.size * 0.6, height: r.size * 0.9 });
 
     return {
@@ -202,14 +204,7 @@ function updatePuffs(game, dt) {
     game.puffs = game.puffs.filter(p => p.life > 0);
 }
 
-// ------- cave phase player movement ---
-function CavePhase(game, player, toPlanet, toDir, inCave = true, duration=0.5){
-    const p0= player.position;
-    const p2= worldPos(toPlanet, toDir, 0);
-    const mid = mult(0.5, add(p0, p2));
-    const p1 = add(mid, vec3(0, 0.4, 0));
-    game.CavePhase = { t: 0, duration, p0, p1, p2, toPlanet, toDir, inCave};
-};
+
 
 // ---------------- flight between planets ----------------
 // A quadratic Bezier curve from the launch point to the landing point, lifted "up" in the middle.
@@ -255,9 +250,53 @@ function updateFlight(game, player, dt) {
     }
 }
 
+// mark
+function cavePhase(game, player, dt, input) {
+    if (!game || !input) return;
+
+    if (input.clickX !== null && input.clickY !== null) {
+        const c = document.querySelector("canvas");
+        const w = (c && c.clientWidth) || window.innerWidth;
+        const h = (c && c.clientHeight) || window.innerHeight;
+
+        const nx = input.clickX / w; // 0 (left) -> 1 (right)
+        const ny = input.clickY / h; // 0 (top)  -> 1 (bottom)
+
+        // Adjust spanX/spanY (size) and offsetX/offsetY (shift) to line up with your blocks
+        const spanX = 4.5;
+        const spanY = 8.5;
+        const offsetX = 0;
+        const offsetY = 0;
+
+        const caveX = (nx * 2 - 1) * spanX + offsetX;
+        const caveY = (1 - ny) * spanY + offsetY;
+
+        const bounds = game.tileBounds || [];
+        const hitIndex = bounds.findIndex(
+            ([minX, maxX, minY, maxY]) =>
+                caveX >= minX && caveX <= maxX && caveY >= minY && caveY <= maxY
+        );
+
+        if (hitIndex !== -1) {
+            game.pathPuzzle = game.pathPuzzle || {};
+            game.pathPuzzle.tileIndices = game.pathPuzzle.tileIndices || [];
+
+            const nextTex = ((game.pathPuzzle.tileIndices[hitIndex] || 0) + 1) % 4;
+            game.pathPuzzle.tileIndices[hitIndex] = nextTex;
+
+            say(game, `Block ${hitIndex}`, 2);
+        }
+
+        input.clickX = null;
+        input.clickY = null;
+    }
+}
+
 //audio
 let collectAudio = document.getElementById("collectItemAudio");
+let liftOFFAudio = document.getElementById("liftOffAudio");
 let fade = document.getElementById("fadingScreen");
+
 
 // ---------------- main update ----------------
 export function updateGame(game, player, dt, input) {
@@ -276,22 +315,22 @@ export function updateGame(game, player, dt, input) {
     if (game.phase === 'explore') {
         const planet = player.planet;
         const pPos = player.position;
+    
+    //////////// !!! mark
+            if (game.nearCave){
+                game.phase = "cave";
+                say(game, 'You entered a cave! Solve the puzzle.', 4);
+                fade.style.opacity = 1;
 
-
-
-        if(game.nearCave && game.phase !== 'cave') { // switching to cave phase 
-            game.phase = 'cave'; 
-            fadingScreen.style.opacity = 1;
-            CavePhase(game, player, A, CAVE1Entrance.dir, true, 0.5);
+                setTimeout(function() {
+                    if (fade)
+                        fade.style.opacity = 0;
+                    }, 1000);
+                
+            }
+                
             
-            setTimeout(function() {
-                player.placeOn(A, CAVE1Entrance.dir, CE_T1);
-                game.CavePhase = null;
-                if (fadingScreen)
-                    fadingScreen.style.opacity = 0; 
-            }, 1000);
-        }
-
+            ////////////////////////
 
         // pick up parts on this planet by walking into them
         for (const p of game.parts) {
@@ -307,7 +346,8 @@ export function updateGame(game, player, dt, input) {
 
         game.nearShip = planet === A && length(subtract(pPos, worldPos(A, SHIP_DIR, 0))) < 2.4;
         game.nearVolcano = planet === A && arc(player.up, VOLCANO.dir, A.radius) < 4.5;
-        game.nearCave = planet === A && length(subtract(pPos, worldPos(A, CAVE1.dir, 0))) < 2.5;
+        game.nearCave = planet === A && length(subtract(pPos, worldPos(A, CAVE1Entrance.dir, 0))) < 1.5;
+
         // parkour progress messages
         const on = player.standingOn;
         if (on && on.kind === 'step' && on.index > game.bestStep) {
@@ -337,10 +377,13 @@ export function updateGame(game, player, dt, input) {
                 for (const p of game.inventory) { p.installed = true; game.installed++; }
                 game.inventory = [];
                 say(game, `Installed: ${names}`);
+
             } else if (game.installed === game.parts.length) {
                 game.phase = 'escaping';
                 player.visible = false;
                 say(game, 'Engines online... LIFT OFF!', 4);
+                
+
             } else {
                 say(game, `The ship still needs ${game.parts.length - game.installed} more part(s).`);
             }
@@ -358,8 +401,11 @@ export function updateGame(game, player, dt, input) {
     } else if (game.phase === 'flight') {
         updateFlight(game, player, dt);
     } 
-    else if (game.phase === "cave") { // if player is inside the cave
-        ///
+    else if (game.phase === "cave") {
+        cavePhase(game, player, dt, input);
+     
+
+// mark
     }
     else {
         // escape sequence: rumble for a second, then accelerate away from the planet
@@ -368,7 +414,11 @@ export function updateGame(game, player, dt, input) {
             game.shipVel += 7 * dt;
             game.shipLift += game.shipVel * dt;
         }
-        if (game.phase === 'escaping' && game.escapeTime > 5) game.phase = 'won';
+        if (game.phase === 'escaping' && game.escapeTime > 5) {
+            liftOFFAudio.play();
+            game.phase = 'won';
+        }
+
     }
 }
 
@@ -385,16 +435,17 @@ export function cameraTarget(game, player) {
         return { pos, up: SHIP_DIR, forward: SHIP_FWD, zoomScale: 1 + game.escapeTime * 0.4 };
     }
 
-    if (game.phase === "cave") {
+    if (game.phase === 'cave') { //mark
         return {
-            pos: vec3(0, 1.5, 0),
-            up: vec3(0,1, 0),
+            pos: vec3(0, 4, -1.5),
+            up: vec3(0, 1.5, 0),
             forward: vec3(0, 0, -1),
-            zoomScale: 1,
+            zoomScale: 0.8,
             upOffset: 1.5,
-            backOffset: 5,
+            backOffset: 12,
         };
-    }
+           //
+        }
     // lower, more side-on camera near the volcano / in the air so jump heights are readable
     const parkour = game.nearVolcano || player.h > 0.3 || game.phase === 'geyser';
     return {
@@ -415,6 +466,7 @@ const STEAM = material({ diffuse: [0.8, 0.8, 0.85], emissive: [0.35, 0.35, 0.4],
 export function drawWorld(renderer, meshes, textures, stack, game, time, planetMaterials) {
     if (game.phase === "cave") {
         drawCaveInterior(renderer, meshes, textures, stack, game, time);
+
         return;
     }
 
@@ -488,8 +540,18 @@ function drawCaveEnterance(renderer, meshes, textures, stack, game, time) {
     stack.pop();   
 }
 
-function drawCaveInterior(renderer, meshes, textures, stack, game, time) {
-    const caveMat = material({
+function drawCaveInterior(renderer, meshes, textures, stack, game, time) { //mark
+    const puzzleTextures = [textures.pipe1, textures.pipe2, textures.pipe3, textures.pipe4];
+    const tileIndices = (game && game.pathPuzzle && game.pathPuzzle.tileIndices) || [];
+
+    const FloorMat = material({
+        diffuse: [0.2, 0.24, 0.27],
+        texture: textures.rock,
+        texScale: [4, 4],
+        specular: [0.05, 0.05, 0.05],
+    });
+
+    const WallMat = material({
         diffuse: [0.28, 0.24, 0.27],
         texture: textures.rock,
         texScale: [4, 4],
@@ -497,16 +559,68 @@ function drawCaveInterior(renderer, meshes, textures, stack, game, time) {
         emissive: [0.12, 0.1, 0.12],
     });
 
-    function inside(cx, cy, cz, w, h, d) {
-        stack.load(translate(cx, cy, cz));
-        stack.mul(scale(w, h, d));
-        renderer.draw(meshes.cube, stack.top, caveMat);
+    const tileMats = puzzleTextures.map((tex) =>
+        material({
+            diffuse: [1, 1, 1],
+            texture: tex,
+            texScale: [1, 1],
+            specular: [0.2, 0.2, 0.2],
+            shininess: 16,
+        })
+    );
+
+    stack.load(translate(0, 0, 0));
+
+    // Floor
+    stack.push();
+        stack.mul(translate(0, -2, -1));
+        stack.mul(scale(30, 4, 14));
+        renderer.draw(meshes.cube, stack.top, FloorMat);
+    stack.pop();
+
+    // wall
+    stack.push();
+        stack.mul(translate(0, 4.25, -6.6));
+        stack.mul(scale(30, 8.5, 1.2));
+        renderer.draw(meshes.cube, stack.top, WallMat);
+    stack.pop();
+
+    // wall puzzle
+    const cols = 4;
+    const rows = 4;
+    const tileSize = 1.6;
+    const step = 1.8;
+    const centerX = 0;
+    const centerY = 4.25;
+    const blockZ = -5.9;
+
+    const startX = centerX - ((cols - 1) * step) / 2;
+    const startY = centerY + ((rows - 1) * step) / 2;
+    if (game) game.tileBounds = [ ];
+
+    for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+            const idx = r * cols + c;
+            const x = startX + c * step;
+            const y = startY - r * step;
+            const half = tileSize /2;
+            const minX = x- half;
+            const minY = y - half;
+            const maxX = x + half;
+            const maxY = y + half;
+            if (game) game.tileBounds.push([minX, maxX, minY, maxY]);
+
+            const texIdx = (tileIndices[idx] || 0) % tileMats.length;
+
+            stack.push();
+                stack.mul(translate(x, y, blockZ));
+                stack.mul(scale(tileSize, tileSize, 0.2));
+                renderer.draw(meshes.cube, stack.top, tileMats[texIdx]);
+            stack.pop();
+        }
     }
-
-    inside(0, -2, -1, 30, 4, 14);
-
-    inside(0, 3.5, -6.6, 30, 7, 1.2);
 }
+
 
 function drawVolcano(renderer, meshes, textures, stack, game, time) {
     const R = A.radius;
