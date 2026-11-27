@@ -686,14 +686,14 @@ function drawVolcano(renderer, meshes, textures, stack, game, time) {
         stack.load(surfaceFrame(p.dir, tangentFor(p.dir), pl.radius + p.top - 0.12, pl.center));
         if (p.kind === 'summit') {
             stack.mul(scale(2 * p.size * 0.9, 0.24, 2 * p.size * 0.9));
-            renderer.draw(meshes.cube, stack.top, material({ diffuse: [0.25, 0.2, 0.2], emissive: [0.35 * glow, 0.1 * glow, 0] }));
+            renderer.draw(meshes.cube, stack.top, material({ diffuse: [0.25, 0.2, 0.2], texture: textures.rock, emissive: [0.35 * glow, 0.1 * glow, 0] }));
         } else {
             const t = p.index / 4;
             stack.mul(rotateY(p.index * 25));
             stack.mul(scale(2 * p.size, 0.24, 2 * p.size));
             renderer.draw(meshes.cube, stack.top, material({
                 diffuse: [0.35 + 0.55 * t, 0.55 - 0.15 * t, 0.9 - 0.6 * t],
-                texture: textures.hull, specular: [0.4, 0.4, 0.4], shininess: 30,
+                texture: textures.cloud, specular: [0.4, 0.4, 0.4], shininess: 30,
                 emissive: [0.05, 0.05, 0.08],
             }));
         }

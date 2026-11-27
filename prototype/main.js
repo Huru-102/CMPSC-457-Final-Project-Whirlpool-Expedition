@@ -22,6 +22,7 @@ const TEXTURE_FILES = {
     TempleWall: 'textures/Temple_Wall_repeat.png',
     CloudPlatforms: 'textures/Cloud_texture.png',
     CastleWall: 'textures/FinalCastle_texture.png',
+    cloud: 'textures/Cloud_texture.png',
 };
 
 function textureFor(name, makeGenerated) {
@@ -68,6 +69,7 @@ window.onload = function init() {
         hull:   textureFor('hull',   () => G.makeHullTexture(gl)),
         TempleWall: textureFor('TempleWall',   () => G.makeRockTexture(gl)),
         CastleWall: textureFor('CastleWall',   () => G.makeRockTexture(gl)),
+        cloud: textureFor('cloud',   () => G.makeRockTexture(gl)),
 
     };
 
