@@ -341,7 +341,6 @@ function cavePhase(game, player, dt, input) {
 
     if (!game || !input) return;
 
-    console.log("CLICKED TILE:", input.clickedTile);
 
     if (input.clickedTile !== null) {
         const hitIndex = input.clickedTile;
@@ -378,6 +377,12 @@ function cavePhase(game, player, dt, input) {
         5, -1, 3, -1,
         6, 4, 1, -1
     ];
+    const winPuz2 = [
+        2, 4, 4, 4,
+        6, 4, 5, -1,
+        4, 5, 3, -1,
+        -1, 6, 1, -1
+    ];
 
     let correctTiles = 0;
     
@@ -386,7 +391,7 @@ function cavePhase(game, player, dt, input) {
         const current = game.pathPuzzle.tileIndices[i] ?? 0;
         const currentPNG = puzzleTextureNumbers[i][current];
 
-        if (winPuz[i] === -1 || currentPNG === winPuz[i]) {
+        if (winPuz[i] === -1 | winPuz2[i] === -1|| currentPNG === winPuz2[i] || currentPNG === winPuz[i]) {
             correctTiles++;
         }
     }
