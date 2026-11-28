@@ -979,7 +979,7 @@ function drawPyramid(renderer, meshes, textures, stack, time) {
     
     renderer.draw(meshes.sphere, stack.top, material({ diffuse: [0.6, 1, 1], emissive: [0.3 * g, g, g] }));
     
-    stack.load(surfaceFrame(VENT_DIR, tangentFor(VENT_DIR), A.radius, A.center));
+    stack.load(surfaceFrame(VENT_DIR, tangentFor(VENT_DIR), B.radius, B.center));
     stack.push();
         stack.mul(translate(0, 0.20, 0));
         stack.mul(scale(2, 0.50, 2.05));
